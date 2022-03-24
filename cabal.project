@@ -1,0 +1,17 @@
+packages: ./
+
+source-repository-package
+    type: git
+    location: https://github.com/hasufell/filepath.git
+    tag: bc240135e7aa08bda6901b971327311f68ca69dc
+
+source-repository-package
+    type: git
+    location: https://github.com/hasufell/unix.git
+    tag: 2a9602517f3b2467fdebc2b6733faaddf9dbeb8a
+
+source-repository-package
+    type: git
+    location: https://github.com/hasufell/Win32.git
+    tag: b1f51c826898bdabd164e78541c74fa45c18fce4
+
