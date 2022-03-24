@@ -8,7 +8,6 @@ import System.Posix.IO.PosixString
       OpenFileFlags(noctty, nonBlock, creat, append),
       OpenMode(ReadWrite, ReadOnly, WriteOnly) )
 import System.AbstractFilePath.Posix ( PosixFilePath )
-import System.Posix.Files ( regularFileMode )
 
 -- | Open a file and return the 'Handle'.
 openFile :: PosixFilePath -> IOMode -> IO Handle
@@ -19,5 +18,5 @@ openFile fp iomode = fdToHandle =<< case iomode of
   ReadWriteMode -> open ReadWrite df
  where
   open = openFd fp
-  df = defaultFileFlags { noctty = True, nonBlock = True, creat = Just regularFileMode }
+  df = defaultFileFlags { noctty = True, nonBlock = True, creat = Just 0o666 }
 
