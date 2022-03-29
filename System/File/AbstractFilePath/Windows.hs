@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module System.File.AbstractFilePath.Windows where
 
 import Control.Exception (bracketOnError)
@@ -7,6 +8,9 @@ import System.AbstractFilePath.Windows ( WindowsFilePath )
 
 import qualified System.Win32 as Win32
 import qualified System.Win32.WindowsString.File as WS
+#if defined(__IO_MANAGER_WINIO__)
+import GHC.IO.SubSystem
+#endif
 
 -- | Open a file and return the 'Handle'.
 openFile :: WindowsFilePath -> IOMode -> IO Handle
@@ -17,7 +21,14 @@ openFile fp iomode = bracketOnError
       shareMode
       Nothing
       createMode
+#if defined(__IO_MANAGER_WINIO__)
+      (case ioSubSystem of
+        IoPOSIX -> Win32.fILE_ATTRIBUTE_NORMAL
+        IoNative -> Win32.fILE_ATTRIBUTE_NORMAL .|. Win32.fILE_FLAG_OVERLAPPED
+      )
+#else
       Win32.fILE_ATTRIBUTE_NORMAL
+#endif
       Nothing)
     Win32.closeHandle
     Win32.hANDLEToHandle
