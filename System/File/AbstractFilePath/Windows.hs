@@ -8,6 +8,7 @@ import System.AbstractFilePath.Windows ( WindowsFilePath )
 
 import qualified System.Win32 as Win32
 import qualified System.Win32.WindowsString.File as WS
+import Control.Monad (when, void)
 #if defined(__IO_MANAGER_WINIO__)
 import GHC.IO.SubSystem
 #endif
@@ -31,12 +32,15 @@ openFile fp iomode = bracketOnError
 #endif
       Nothing)
     Win32.closeHandle
-    Win32.hANDLEToHandle
+    toHandle
  where
+  toHandle h = do
+    when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
+    Win32.hANDLEToHandle h
   accessMode = case iomode of
     ReadMode      -> Win32.gENERIC_READ
     WriteMode     -> Win32.gENERIC_WRITE
-    AppendMode    -> Win32.fILE_APPEND_DATA
+    AppendMode    -> Win32.gENERIC_WRITE .|. Win32.fILE_APPEND_DATA
     ReadWriteMode -> Win32.gENERIC_READ .|. Win32.gENERIC_WRITE
 
   createMode = case iomode of
