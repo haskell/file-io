@@ -9,5 +9,5 @@ source-repository-package
 source-repository-package
     type: git
     location: https://github.com/hasufell/Win32.git
-    tag: 73d0025b1eb9816ba83a45a7e1c8eb10942a94a8
+    tag: a2ab9bc501614c48c62f9508488e87f0c2924b7b
 

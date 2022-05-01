@@ -17,17 +17,18 @@ maintainer:         hasufell@posteo.de
 copyright:          Julian Ospald 2022
 category:           System
 extra-source-files: CHANGELOG.md
+                    System/File/Common.hs
 
 library
     default-language: Haskell2010
 
     if os(windows)
         other-modules:
-            System.File.AbstractFilePath.Windows
+            System.File.Windows
         build-depends: Win32 >= 3.0.0.0
     else
         other-modules:
-            System.File.AbstractFilePath.Posix
+            System.File.Posix
         build-depends: unix >= 2.8.0.0
 
     build-depends:
@@ -37,5 +38,6 @@ library
 
     exposed-modules:
         System.File.AbstractFilePath
+        System.File.PlatformFilePath
 
     ghc-options: -Wall
