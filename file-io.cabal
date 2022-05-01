@@ -28,7 +28,7 @@ library
     else
         other-modules:
             System.File.AbstractFilePath.Posix
-        build-depends: unix >= 2.9.0.0
+        build-depends: unix >= 2.8.0.0
 
     build-depends:
         base        >= 4.10    && < 4.17,
