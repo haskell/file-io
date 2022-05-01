@@ -5,7 +5,7 @@ import System.Posix.IO.PosixString
     ( defaultFileFlags,
       fdToHandle,
       openFd,
-      OpenFileFlags(noctty, nonBlock, creat, append),
+      OpenFileFlags(noctty, nonBlock, creat, append, trunc),
       OpenMode(ReadWrite, ReadOnly, WriteOnly) )
 import System.AbstractFilePath.Posix ( PosixFilePath )
 
@@ -13,7 +13,7 @@ import System.AbstractFilePath.Posix ( PosixFilePath )
 openFile :: PosixFilePath -> IOMode -> IO Handle
 openFile fp iomode = fdToHandle =<< case iomode of
   ReadMode      -> open ReadOnly  df
-  WriteMode     -> open WriteOnly df
+  WriteMode     -> open WriteOnly df { trunc = True }
   AppendMode    -> open WriteOnly df { append = True }
   ReadWriteMode -> open ReadWrite df
  where
