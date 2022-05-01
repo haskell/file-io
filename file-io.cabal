@@ -25,7 +25,7 @@ library
     if os(windows)
         other-modules:
             System.File.Windows
-        build-depends: Win32 >= 3.0.0.0
+        build-depends: Win32 >= 2.13.2.0
     else
         other-modules:
             System.File.Posix
