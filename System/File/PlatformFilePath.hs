@@ -22,3 +22,7 @@ import qualified Data.ByteString.Lazy as BSL
 openFile :: PlatformFilePath -> IOMode -> IO Handle
 openFile fp = P.openFile fp
 
+-- | Open an existing file and return the 'Handle'.
+openExistingFile :: PlatformFilePath -> IOMode -> IO Handle
+openExistingFile fp = P.openExistingFile fp
+
