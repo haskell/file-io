@@ -1,13 +1,13 @@
 packages: ./
-          https://hackage.haskell.org/package/filepath-2.0.0.3/candidate/filepath-2.0.0.3.tar.gz
+          https://hackage.haskell.org/package/filepath-1.4.99.5/candidate/filepath-1.4.99.5.tar.gz
 
 source-repository-package
     type: git
     location: https://github.com/hasufell/unix.git
-    tag: 3deb23cd87c157799685fecf2f67dbee5a5b2519
+    tag: f3b8ff89e1166df51ae02ce405fc1b3efe3c590f
 
 source-repository-package
     type: git
     location: https://github.com/hasufell/Win32.git
-    tag: 39a149552c1a2da43b5554b86776b374911df3e9
+    tag: 766234a476e9f7b88c72fe13b51e0012f95837e9
 

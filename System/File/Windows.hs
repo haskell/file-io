@@ -5,7 +5,7 @@ module System.File.Windows where
 import Control.Exception (bracketOnError)
 import Data.Bits
 import System.IO (IOMode(..), Handle)
-import System.AbstractFilePath.Windows ( WindowsFilePath )
+import System.OsPath.Windows ( WindowsPath )
 
 import qualified System.Win32 as Win32
 import qualified System.Win32.WindowsString.File as WS
@@ -15,7 +15,7 @@ import GHC.IO.SubSystem
 #endif
 
 -- | Open a file and return the 'Handle'.
-openFile :: WindowsFilePath -> IOMode -> IO Handle
+openFile :: WindowsPath -> IOMode -> IO Handle
 openFile fp iomode = bracketOnError
     (WS.createFile
       fp
@@ -68,7 +68,7 @@ writeShareMode =
   Win32.fILE_SHARE_READ
 
   -- | Open an existing file and return the 'Handle'.
-openExistingFile :: WindowsFilePath -> IOMode -> IO Handle
+openExistingFile :: WindowsPath -> IOMode -> IO Handle
 openExistingFile fp iomode = bracketOnError
     (WS.createFile
       fp

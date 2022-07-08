@@ -7,10 +7,10 @@ import System.Posix.IO.PosixString
       openFd,
       OpenFileFlags(noctty, nonBlock, creat, append, trunc),
       OpenMode(ReadWrite, ReadOnly, WriteOnly) )
-import System.AbstractFilePath.Posix ( PosixFilePath )
+import System.OsPath.Posix ( PosixPath )
 
 -- | Open a file and return the 'Handle'.
-openFile :: PosixFilePath -> IOMode -> IO Handle
+openFile :: PosixPath -> IOMode -> IO Handle
 openFile fp iomode = fdToHandle =<< case iomode of
   ReadMode      -> open ReadOnly  df
   WriteMode     -> open WriteOnly df { trunc = True }
@@ -21,7 +21,7 @@ openFile fp iomode = fdToHandle =<< case iomode of
   df = defaultFileFlags { noctty = True, nonBlock = True, creat = Just 0o666 }
 
 -- | Open an existing file and return the 'Handle'.
-openExistingFile :: PosixFilePath -> IOMode -> IO Handle
+openExistingFile :: PosixPath -> IOMode -> IO Handle
 openExistingFile fp iomode = fdToHandle =<< case iomode of
   ReadMode      -> open ReadOnly  df
   WriteMode     -> open WriteOnly df { trunc = True }
