@@ -99,7 +99,7 @@ openExistingFile fp iomode = bracketOnError
 
   createMode = case iomode of
     ReadMode      -> Win32.oPEN_EXISTING
-    WriteMode     -> Win32.oTRUNCATE_EXISTING
+    WriteMode     -> Win32.tRUNCATE_EXISTING
     AppendMode    -> Win32.oPEN_EXISTING
     ReadWriteMode -> Win32.oPEN_EXISTING
 
