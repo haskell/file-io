@@ -1,13 +1,13 @@
 packages: ./
-          https://hackage.haskell.org/package/filepath-1.4.99.5/candidate/filepath-1.4.99.5.tar.gz
 
 source-repository-package
     type: git
-    location: https://github.com/hasufell/unix.git
-    tag: f3b8ff89e1166df51ae02ce405fc1b3efe3c590f
+    location: https://github.com/haskell/unix.git
+    tag: 43acabe288f58e3d8c9c71e15d4dd7b586e26efb
+    post-checkout-command: autoreconf -fi
 
 source-repository-package
     type: git
     location: https://github.com/hasufell/Win32.git
-    tag: 766234a476e9f7b88c72fe13b51e0012f95837e9
+    tag: 9723c3d2f222fbf8a57dc058f18a0fd54b0ae77c
 
