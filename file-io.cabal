@@ -1,43 +1,41 @@
 cabal-version:      2.4
 name:               file-io
 version:            0.1.0.0
-
-synopsis: Basic file IO operations via 'OsPath'
-
-description: Basic file IO operations like Prelude, but for 'OsPath'.
-
--- A URL where users can report bugs.
--- bug-reports:
-
--- The license under which the package is released.
+synopsis:           Basic file IO operations via 'OsPath'
+description:        Basic file IO operations like Prelude, but for 'OsPath'.
+homepage:           https://github.com/hasufell/file-io
+bug-reports:        https://github.com/hasufell/file-io/issues
 license:            BSD-3-Clause
 author:             Julian Ospald
 maintainer:         hasufell@posteo.de
-
 copyright:          Julian Ospald 2022
 category:           System
-extra-source-files: CHANGELOG.md
-                    System/File/Common.hs
+extra-source-files:
+  CHANGELOG.md
+  System/File/Common.hs
+
+source-repository head
+  type:     git
+  location: https://github.com/hasufell/file-io.git
 
 library
-    default-language: Haskell2010
+  default-language: Haskell2010
 
-    if os(windows)
-        other-modules:
-            System.File.Windows
-        build-depends: Win32 >= 2.13.3.0
-    else
-        other-modules:
-            System.File.Posix
-        build-depends: unix >= 2.8.0.0
+  if os(windows)
+    other-modules: System.File.Windows
+    build-depends: Win32 >=2.13.3.0
 
-    build-depends:
-        base        >= 4.10    && < 4.17,
-        bytestring  >=0.11.3.0,
-        filepath    >= 1.4.100.0
+  else
+    other-modules: System.File.Posix
+    build-depends: unix >=2.8.0.0
 
-    exposed-modules:
-        System.File.OsPath
-        System.File.PlatformPath
+  build-depends:
+    , base        >=4.10      && <4.17
+    , bytestring  >=0.11.3.0
+    , filepath    >=1.4.100.0
 
-    ghc-options: -Wall
+  exposed-modules:
+    System.File.OsPath
+    System.File.PlatformPath
+
+  ghc-options:      -Wall
