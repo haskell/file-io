@@ -13,12 +13,12 @@ import System.OsPath.Posix ( PosixPath )
 openFile :: PosixPath -> IOMode -> IO Handle
 openFile fp iomode = fdToHandle =<< case iomode of
   ReadMode      -> open ReadOnly  df
-  WriteMode     -> open WriteOnly df { trunc = True }
-  AppendMode    -> open WriteOnly df { append = True }
-  ReadWriteMode -> open ReadWrite df
+  WriteMode     -> open WriteOnly df { trunc = True, creat = Just 0o666 }
+  AppendMode    -> open WriteOnly df { append = True, creat = Just 0o666 }
+  ReadWriteMode -> open ReadWrite df { creat = Just 0o666 }
  where
   open = openFd fp
-  df = defaultFileFlags { noctty = True, nonBlock = True, creat = Just 0o666 }
+  df = defaultFileFlags { noctty = True, nonBlock = True }
 
 -- | Open an existing file and return the 'Handle'.
 openExistingFile :: PosixPath -> IOMode -> IO Handle
