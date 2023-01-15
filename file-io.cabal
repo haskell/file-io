@@ -30,7 +30,7 @@ library
     build-depends: unix >=2.8.0.0
 
   build-depends:
-    , base        >=4.10      && <4.17
+    , base        >=4.10      && <5
     , bytestring  >=0.11.3.0
     , filepath    >=1.4.100.0
 
