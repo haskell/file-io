@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
-module System.File.Windows where
+module System.File.Platform where
 
 import Control.Exception (bracketOnError)
 import Data.Bits
