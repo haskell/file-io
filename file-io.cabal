@@ -12,7 +12,6 @@ copyright:          Julian Ospald 2022
 category:           System
 extra-source-files:
   CHANGELOG.md
-  System/File/Common.hs
 
 source-repository head
   type:     git
