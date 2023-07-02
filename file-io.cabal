@@ -22,13 +22,14 @@ library
   default-language: Haskell2010
 
   if os(windows)
-    other-modules: System.File.Windows
+    hs-source-dirs: windows
     build-depends: Win32 >=2.13.3.0
 
   else
-    other-modules: System.File.Posix
+    hs-source-dirs: posix
     build-depends: unix >=2.8.0.0
 
+  hs-source-dirs: .
   build-depends:
     , base        >=4.10      && <5
     , bytestring  >=0.11.3.0
@@ -37,5 +38,7 @@ library
   exposed-modules:
     System.File.OsPath
     System.File.PlatformPath
+
+  other-modules: System.File.Platform
 
   ghc-options:      -Wall

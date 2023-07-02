@@ -1,4 +1,4 @@
-module System.File.Posix where
+module System.File.Platform where
 
 import System.IO (IOMode(..), Handle)
 import System.Posix.IO.PosixString

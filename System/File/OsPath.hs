@@ -2,13 +2,7 @@
 
 module System.File.OsPath where
 
-#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
-#define CTOR WS
-import qualified System.File.Windows as P
-#else
-#define CTOR PS
-import qualified System.File.Posix as P
-#endif
+import qualified System.File.Platform as P
 
 import Control.Exception (bracket)
 import System.IO (IOMode(..), Handle, hSetBinaryMode, hClose)
