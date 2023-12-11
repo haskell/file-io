@@ -1,5 +1,9 @@
 # Revision history for file-io
 
+## 0.1.0.2 -- 2023-12-11
+
+* support `os-string` package and newer `filepath`
+
 ## 0.1.0.1 -- YYYY-mm-dd
 
 * Don't use creat flag when only reading files
