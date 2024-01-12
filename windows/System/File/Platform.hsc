@@ -6,12 +6,17 @@ import Control.Exception (bracketOnError)
 import Data.Bits
 import System.IO (IOMode(..), Handle)
 import System.OsPath.Windows ( WindowsPath )
+import Foreign.C.Types
+import Foreign.Ptr (ptrToIntPtr)
 
 import qualified System.Win32 as Win32
 import qualified System.Win32.WindowsString.File as WS
 import Control.Monad (when, void)
 #if defined(__IO_MANAGER_WINIO__)
 import GHC.IO.SubSystem
+#else
+import GHC.IO.Handle.FD (fdToHandle')
+#include <fcntl.h>
 #endif
 
 -- | Open a file and return the 'Handle'.
@@ -35,9 +40,16 @@ openFile fp iomode = bracketOnError
     Win32.closeHandle
     toHandle
  where
+#if defined(__IO_MANAGER_WINIO__)
   toHandle h = do
     when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
     Win32.hANDLEToHandle h
+#else
+  toHandle h = do
+    when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
+    fd <- _open_osfhandle (fromIntegral (ptrToIntPtr h)) (#const _O_BINARY)
+    fdToHandle' fd Nothing False ("<file descriptor: " ++ show fd ++ ">") iomode True
+#endif
   accessMode = case iomode of
     ReadMode      -> Win32.gENERIC_READ
     WriteMode     -> Win32.gENERIC_WRITE
@@ -108,4 +120,9 @@ openExistingFile fp iomode = bracketOnError
     WriteMode     -> writeShareMode
     AppendMode    -> writeShareMode
     ReadWriteMode -> maxShareMode
+
+#if !defined(__IO_MANAGER_WINIO__)
+foreign import ccall "_open_osfhandle"
+  _open_osfhandle :: CIntPtr -> CInt -> IO CInt
+#endif
 

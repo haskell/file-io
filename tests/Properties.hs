@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
@@ -53,11 +52,7 @@ iomodeReadFile = do
     baseDir <- OSP.encodeFS baseDir'
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) ReadMode $ \h -> BS.hPut h "test"
-#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
-    Left PermissionDenied
-#else
     Left IllegalOperation
-#endif
       @=? first ioe_type r
 
 iomodeWriteFile :: IO ()
@@ -66,11 +61,7 @@ iomodeWriteFile = do
     baseDir <- OSP.encodeFS baseDir'
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) WriteMode $ \h -> BS.hGetContents h
-#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
-    Left InvalidArgument
-#else
     Left IllegalOperation
-#endif
       @=? first ioe_type r
 
 iomodeAppendFile :: IO ()
@@ -79,11 +70,7 @@ iomodeAppendFile = do
     baseDir <- OSP.encodeFS baseDir'
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) AppendMode $ \h -> BS.hGetContents h
-#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
-    Left InvalidArgument
-#else
     Left IllegalOperation
-#endif
       @=? first ioe_type r
 
 iomodeReadWriteFile :: IO ()
