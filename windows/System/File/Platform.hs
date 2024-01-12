@@ -45,7 +45,7 @@ openFile fp iomode = bracketOnError
     ReadWriteMode -> Win32.gENERIC_READ .|. Win32.gENERIC_WRITE
 
   createMode = case iomode of
-    ReadMode      -> Win32.oPEN_ALWAYS
+    ReadMode      -> Win32.oPEN_EXISTING
     WriteMode     -> Win32.cREATE_ALWAYS
     AppendMode    -> Win32.oPEN_ALWAYS
     ReadWriteMode -> Win32.oPEN_ALWAYS
