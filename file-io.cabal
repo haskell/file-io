@@ -56,11 +56,7 @@ test-suite T15
     main-is: T15.hs
     type: exitcode-stdio-1.0
     default-language: Haskell2010
-    build-depends: base, tasty, tasty-hunit, file-io, temporary
-    if flag(os-string)
-      build-depends: filepath >= 1.5.0.0, os-string >= 2.0.0
-    else
-      build-depends: filepath >= 1.4.100.0 && < 1.5.0.0
+    build-depends: base, tasty, tasty-hunit, file-io, filepath, temporary
     ghc-options: -Wall
 
 test-suite T14
@@ -68,10 +64,6 @@ test-suite T14
     main-is: T14.hs
     type: exitcode-stdio-1.0
     default-language: Haskell2010
-    build-depends: base, file-io, temporary
-    if flag(os-string)
-      build-depends: filepath >= 1.5.0.0, os-string >= 2.0.0
-    else
-      build-depends: filepath >= 1.4.100.0 && < 1.5.0.0
+    build-depends: base, file-io, filepath, temporary
     ghc-options: -Wall
 
