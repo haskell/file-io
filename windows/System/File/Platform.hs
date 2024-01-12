@@ -51,7 +51,7 @@ openFile fp iomode = bracketOnError
     ReadWriteMode -> Win32.oPEN_ALWAYS
 
   shareMode = case iomode of
-    ReadMode      -> maxShareMode
+    ReadMode      -> Win32.fILE_SHARE_READ
     WriteMode     -> writeShareMode
     AppendMode    -> writeShareMode
     ReadWriteMode -> maxShareMode
@@ -104,7 +104,7 @@ openExistingFile fp iomode = bracketOnError
     ReadWriteMode -> Win32.oPEN_EXISTING
 
   shareMode = case iomode of
-    ReadMode      -> maxShareMode
+    ReadMode      -> Win32.fILE_SHARE_READ
     WriteMode     -> writeShareMode
     AppendMode    -> writeShareMode
     ReadWriteMode -> maxShareMode
