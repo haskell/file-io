@@ -2,11 +2,13 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
 import Control.Exception
 import Data.Bifunctor (first)
+import qualified System.FilePath as FP
 import Test.Tasty
 import Test.Tasty.HUnit
 import System.OsPath ((</>), osp)
@@ -74,8 +76,8 @@ iomodeReadFile = do
     baseDir <- OSP.encodeFS baseDir'
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) ReadMode $ \h -> BS.hPut h "test"
-    Left IllegalOperation
-      @=? first ioe_type r
+    IOError Nothing IllegalOperation "hPutBuf" "handle is not open for writing" Nothing Nothing
+      @==? first (\e -> e { ioe_filename = Nothing }) r
 
 iomodeWriteFile :: Assertion
 iomodeWriteFile = do
@@ -83,8 +85,8 @@ iomodeWriteFile = do
     baseDir <- OSP.encodeFS baseDir'
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) WriteMode $ \h -> BS.hGetContents h
-    Left IllegalOperation
-      @=? first ioe_type r
+    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing Nothing
+      @==? first (\e -> e { ioe_filename = Nothing }) r
 
 iomodeAppendFile :: Assertion
 iomodeAppendFile = do
@@ -92,8 +94,8 @@ iomodeAppendFile = do
     baseDir <- OSP.encodeFS baseDir'
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) AppendMode $ \h -> BS.hGetContents h
-    Left IllegalOperation
-      @=? first ioe_type r
+    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing Nothing
+      @==? first (\e -> e { ioe_filename = Nothing }) r
 
 iomodeReadWriteFile :: Assertion
 iomodeReadWriteFile = do
@@ -113,11 +115,7 @@ concFile = do
     OSP.writeFile fp ""
     _ <- OSP.openFile fp ReadMode
     r <- try @IOException $ OSP.withFile fp WriteMode $ \h' -> do BS.hPut h' "test"
-#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
-    Left PermissionDenied  @=? first ioe_type r
-#else
-    Left ResourceBusy  @=? first ioe_type r
-#endif
+    IOError Nothing fileLockedType "withFile" fileLockedMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
 
 concFile2 :: Assertion
 concFile2 = do
@@ -137,11 +135,7 @@ concFile3 = do
     OSP.writeFile fp ""
     _ <- OSP.openFile fp WriteMode
     r <- try @IOException $ OSP.withFile fp WriteMode (flip BS.hPut "test")
-#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
-    Left PermissionDenied  @=? first ioe_type r
-#else
-    Left ResourceBusy  @=? first ioe_type r
-#endif
+    IOError Nothing fileLockedType "withFile" fileLockedMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
 
 existingFile :: Assertion
 existingFile = do
@@ -149,7 +143,7 @@ existingFile = do
     baseDir <- OSP.encodeFS baseDir'
     let fp = baseDir </> [osp|foo|]
     r <- try @IOException $ OSP.openExistingFile fp ReadMode
-    Left NoSuchThing  @=? first ioe_type r
+    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
 
 existingFile2 :: Assertion
 existingFile2 = do
@@ -157,7 +151,7 @@ existingFile2 = do
     baseDir <- OSP.encodeFS baseDir'
     let fp = baseDir </> [osp|foo|]
     r <- try @IOException $ OSP.openExistingFile fp WriteMode
-    Left NoSuchThing  @=? first ioe_type r
+    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
 
 existingFile3 :: Assertion
 existingFile3 = do
@@ -165,7 +159,7 @@ existingFile3 = do
     baseDir <- OSP.encodeFS baseDir'
     let fp = baseDir </> [osp|foo|]
     r <- try @IOException $ OSP.openExistingFile fp AppendMode
-    Left NoSuchThing  @=? first ioe_type r
+    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
 
 existingFile4 :: Assertion
 existingFile4 = do
@@ -173,7 +167,7 @@ existingFile4 = do
     baseDir <- OSP.encodeFS baseDir'
     let fp = baseDir </> [osp|foo|]
     r <- try @IOException $ OSP.openExistingFile fp AppendMode
-    Left NoSuchThing  @=? first ioe_type r
+    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
 
 existingFile' :: Assertion
 existingFile' = do
@@ -221,4 +215,38 @@ existingFile4' = do
         c' <- BS.hGetSome h 5
         pure (c, c')
     Right ("tx", "bootx") @=? r
+
+
+compareIOError :: forall a . (Eq a, Show a, HasCallStack) => IOException -> Either IOException a -> Assertion
+compareIOError el (Left lel)  = lel { ioe_handle = Nothing
+                                    , ioe_errno = Nothing
+                                    } @?=
+                                el  { ioe_handle = Nothing
+                                    , ioe_errno = Nothing
+                                    }
+compareIOError el (Right rel) = Right rel @?= (Left el :: Either IOException a)
+
+(@==?) :: forall a . (Eq a, Show a, HasCallStack) => IOException -> Either IOException a -> Assertion
+(@==?) = compareIOError
+
+noSuchFileMsg :: String
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
+noSuchFileMsg = "The system cannot find the file specified."
+#else
+noSuchFileMsg = "No such file or directory"
+#endif
+
+fileLockedMsg :: String
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
+fileLockedMsg = "The process cannot access the file because it is being used by another process."
+#else
+fileLockedMsg = "file is locked"
+#endif
+
+fileLockedType :: IOErrorType
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
+fileLockedType = PermissionDenied
+#else
+fileLockedType = ResourceBusy
+#endif
 

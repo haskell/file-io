@@ -4,6 +4,7 @@
 
 * fix a severe bug on windows, where `readFile` may create a missing file, wrt [#14](https://github.com/hasufell/file-io/issues/14)
 * fix a concurrency bug on windows with `readFile`, wrt [#15](https://github.com/hasufell/file-io/issues/15)
+* make sure to set `ioe_filename` in `IOException` wrt [#17](https://github.com/hasufell/file-io/issues/17)
 
 ## 0.1.0.2 -- 2023-12-11
 

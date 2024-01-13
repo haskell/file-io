@@ -1,10 +1,32 @@
-module System.File.OsPath where
+{-# LANGUAGE TypeApplications #-}
+
+module System.File.OsPath (
+  openBinaryFile
+, withFile
+, withBinaryFile
+, withFile'
+, withBinaryFile'
+, readFile
+, readFile'
+, writeFile
+, writeFile'
+, appendFile
+, appendFile'
+, openFile
+, openExistingFile
+) where
 
 import qualified System.File.Platform as P
 
-import Control.Exception (bracket)
-import System.IO (IOMode(..), Handle, hSetBinaryMode, hClose)
-import System.OsPath
+import Prelude ((.), ($), String, IO, pure, either, const, flip, Maybe(..), fmap, (<$>), id, ioError, (=<<), Bool(..))
+import GHC.IO (catchException)
+import GHC.IO.Exception (IOException(..))
+import Control.DeepSeq (force)
+import Control.Exception (SomeException, try, evaluate, bracket)
+import System.IO (IOMode(..), Handle)
+import System.IO.Unsafe (unsafePerformIO)
+import System.IO (hSetBinaryMode, hClose)
+import System.OsPath as OSP
 import System.OsString.Internal.Types
 
 import qualified Data.ByteString as BS
@@ -22,8 +44,11 @@ import qualified Data.ByteString.Lazy as BSL
 -- On POSIX systems, 'openBinaryFile' is an /interruptible operation/ as
 -- described in "Control.Exception".
 openBinaryFile :: OsPath -> IOMode -> IO Handle
-openBinaryFile fp iomode = do
-  h <- openFile fp iomode
+openBinaryFile osfp iomode = augmentError "openBinaryFile" osfp $ openBinaryFile' osfp iomode
+
+openBinaryFile' :: OsPath -> IOMode -> IO Handle
+openBinaryFile' (OsString fp) iomode =do
+  h <- P.openFile fp iomode
   hSetBinaryMode h True
   pure h
 
@@ -31,16 +56,16 @@ openBinaryFile fp iomode = do
 --
 -- The 'Handle' is automatically closed afther the action.
 withFile :: OsPath -> IOMode -> (Handle -> IO r) -> IO r
-withFile fp iomode action = bracket
-  (openFile fp iomode)
+withFile osfp@(OsString fp) iomode action = either ioError pure =<< (augmentError "withFile" osfp $ bracket
+  (P.openFile fp iomode)
   hClose
-  action
+  (try . action))
 
 withBinaryFile :: OsPath -> IOMode -> (Handle -> IO r) -> IO r
-withBinaryFile fp iomode action = bracket
-  (openBinaryFile fp iomode)
+withBinaryFile osfp iomode action = either ioError pure =<< (augmentError "withBinaryFile" osfp $ bracket
+  (openBinaryFile' osfp iomode)
   hClose
-  action
+  (try . action))
 
 -- | Run an action on a file.
 --
@@ -48,15 +73,15 @@ withBinaryFile fp iomode action = bracket
 -- with caution.
 withFile'
   :: OsPath -> IOMode -> (Handle -> IO r) -> IO r
-withFile' fp iomode action = do
-  h <- openFile fp iomode
-  action h
+withFile' osfp@(OsString fp) iomode action = either ioError pure =<< (augmentError "withFile'" osfp $ do
+  h <- P.openFile fp iomode
+  try . action $ h)
 
 withBinaryFile'
   :: OsPath -> IOMode -> (Handle -> IO r) -> IO r
-withBinaryFile' fp iomode action = do
-  h <- openBinaryFile fp iomode
-  action h
+withBinaryFile' fp iomode action = either ioError pure =<< (augmentError "withBinaryFile'" fp $ do
+  h <- openBinaryFile' fp iomode
+  try . action $ h)
 
 -- | The 'readFile' function reads a file and returns the contents of the file
 -- as a 'ByteString'. The file is read lazily, on demand.
@@ -93,8 +118,18 @@ appendFile' fp contents = withFile fp AppendMode (`BS.hPut` contents)
 
 -- | Open a file and return the 'Handle'.
 openFile :: OsPath -> IOMode -> IO Handle
-openFile (OsString fp) = P.openFile fp
+openFile osfp@(OsString fp) = augmentError "openFile" osfp . P.openFile fp
 
 -- | Open an existing file and return the 'Handle'.
 openExistingFile :: OsPath -> IOMode -> IO Handle
-openExistingFile (OsString fp) = P.openExistingFile fp
+openExistingFile osfp@(OsString fp) = augmentError "openExistingFile" osfp . P.openExistingFile fp
+
+addFilePathToIOError :: String -> OsPath -> IOException -> IOException
+addFilePathToIOError fun fp ioe = unsafePerformIO $ do
+  fp'  <- either (const (fmap OSP.toChar . OSP.unpack $ fp)) id <$> try @SomeException (OSP.decodeFS fp)
+  fp'' <- evaluate $ force fp'
+  pure $ ioe{ ioe_location = fun, ioe_filename = Just fp'' }
+
+augmentError :: String -> OsPath -> IO a -> IO a
+augmentError str osfp = flip catchException (ioError . addFilePathToIOError str osfp)
+

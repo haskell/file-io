@@ -44,6 +44,7 @@ library
   build-depends:
     , base        >=4.12      && <5
     , bytestring  >=0.11.3.0
+    , deepseq
 
   if flag(os-string)
     build-depends: filepath >= 1.5.0.0, os-string >= 2.0.0
