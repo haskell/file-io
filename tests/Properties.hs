@@ -31,10 +31,18 @@ main = defaultMain $ testGroup "All"
        , testCase "concurrency: open multiple handles (read and write)" concFile
        , testCase "concurrency: open multiple handles (read and read)" concFile2
        , testCase "concurrency: open multiple handles (write and write)" concFile3
+       , testCase "openExistingFile no (Read)" existingFile
+       , testCase "openExistingFile no (Write)" existingFile2
+       , testCase "openExistingFile no (Append)" existingFile3
+       , testCase "openExistingFile no (ReadWrite)" existingFile4
+       , testCase "openExistingFile yes (Read)" existingFile'
+       , testCase "openExistingFile yes (Write)" existingFile2'
+       , testCase "openExistingFile yes (Append)" existingFile3'
+       , testCase "openExistingFile yes (ReadWrite)" existingFile4'
        ]
     ]
 
-writeFileReadFile :: IO ()
+writeFileReadFile :: Assertion
 writeFileReadFile = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -42,7 +50,7 @@ writeFileReadFile = do
     contents <- OSP.readFile (baseDir </> [osp|foo|])
     "test" @=? contents
 
-writeWriteFileReadFile :: IO ()
+writeWriteFileReadFile :: Assertion
 writeWriteFileReadFile = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -51,7 +59,7 @@ writeWriteFileReadFile = do
     contents <- OSP.readFile (baseDir </> [osp|foo|])
     "test" @=? contents
 
-appendFileReadFile :: IO ()
+appendFileReadFile :: Assertion
 appendFileReadFile = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -60,7 +68,7 @@ appendFileReadFile = do
     contents <- OSP.readFile (baseDir </> [osp|foo|])
     "testtest" @=? contents
 
-iomodeReadFile :: IO ()
+iomodeReadFile :: Assertion
 iomodeReadFile = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -69,7 +77,7 @@ iomodeReadFile = do
     Left IllegalOperation
       @=? first ioe_type r
 
-iomodeWriteFile :: IO ()
+iomodeWriteFile :: Assertion
 iomodeWriteFile = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -78,7 +86,7 @@ iomodeWriteFile = do
     Left IllegalOperation
       @=? first ioe_type r
 
-iomodeAppendFile :: IO ()
+iomodeAppendFile :: Assertion
 iomodeAppendFile = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -87,7 +95,7 @@ iomodeAppendFile = do
     Left IllegalOperation
       @=? first ioe_type r
 
-iomodeReadWriteFile :: IO ()
+iomodeReadWriteFile :: Assertion
 iomodeReadWriteFile = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -97,7 +105,7 @@ iomodeReadWriteFile = do
       BS.hGetContents h
     Right "testtest"  @=? r
 
-concFile :: IO ()
+concFile :: Assertion
 concFile = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -111,7 +119,7 @@ concFile = do
     Left ResourceBusy  @=? first ioe_type r
 #endif
 
-concFile2 :: IO ()
+concFile2 :: Assertion
 concFile2 = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -121,7 +129,7 @@ concFile2 = do
     r <- try @IOException $ OSP.withFile fp ReadMode BS.hGetContents
     Right "h"  @=? r
 
-concFile3 :: IO ()
+concFile3 :: Assertion
 concFile3 = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
@@ -134,4 +142,83 @@ concFile3 = do
 #else
     Left ResourceBusy  @=? first ioe_type r
 #endif
+
+existingFile :: Assertion
+existingFile = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let fp = baseDir </> [osp|foo|]
+    r <- try @IOException $ OSP.openExistingFile fp ReadMode
+    Left NoSuchThing  @=? first ioe_type r
+
+existingFile2 :: Assertion
+existingFile2 = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let fp = baseDir </> [osp|foo|]
+    r <- try @IOException $ OSP.openExistingFile fp WriteMode
+    Left NoSuchThing  @=? first ioe_type r
+
+existingFile3 :: Assertion
+existingFile3 = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let fp = baseDir </> [osp|foo|]
+    r <- try @IOException $ OSP.openExistingFile fp AppendMode
+    Left NoSuchThing  @=? first ioe_type r
+
+existingFile4 :: Assertion
+existingFile4 = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let fp = baseDir </> [osp|foo|]
+    r <- try @IOException $ OSP.openExistingFile fp AppendMode
+    Left NoSuchThing  @=? first ioe_type r
+
+existingFile' :: Assertion
+existingFile' = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let fp = baseDir </> [osp|foo|]
+    OSP.writeFile fp "test"
+    r <- try @IOException $ (OSP.openExistingFile fp ReadMode >>= BS.hGetContents)
+    Right "test" @=? r
+
+existingFile2' :: Assertion
+existingFile2' = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let fp = baseDir </> [osp|foo|]
+    OSP.writeFile fp "test"
+    r <- try @IOException $ do
+      OSP.openExistingFile fp WriteMode >>= \h -> BS.hPut h "boo" >> hClose h
+      OSP.readFile (baseDir </> [osp|foo|])
+    Right "boo" @=? r
+
+existingFile3' :: Assertion
+existingFile3' = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let fp = baseDir </> [osp|foo|]
+    OSP.writeFile fp "test"
+    r <- try @IOException $ do
+      OSP.openExistingFile fp AppendMode >>= \h -> BS.hPut h "boo" >> hClose h
+      OSP.readFile (baseDir </> [osp|foo|])
+    Right "testboo" @=? r
+
+existingFile4' :: Assertion
+existingFile4' = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let fp = baseDir </> [osp|foo|]
+    OSP.writeFile fp "testx"
+    r <- try @IOException $
+      OSP.openExistingFile fp ReadWriteMode >>= \h -> do
+        hSetBuffering h NoBuffering
+        BS.hPut h "boo"
+        c <- BS.hGetSome h 5
+        hSeek h AbsoluteSeek 0
+        c' <- BS.hGetSome h 5
+        pure (c, c')
+    Right ("tx", "bootx") @=? r
 
