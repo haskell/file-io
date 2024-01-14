@@ -7,7 +7,6 @@
 module Main where
 
 import Control.Exception
-import Data.Bifunctor (first)
 import qualified System.FilePath as FP
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -76,8 +75,8 @@ iomodeReadFile = do
     baseDir <- OSP.encodeFS baseDir'
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) ReadMode $ \h -> BS.hPut h "test"
-    IOError Nothing IllegalOperation "hPutBuf" "handle is not open for writing" Nothing Nothing
-      @==? first (\e -> e { ioe_filename = Nothing }) r
+    IOError Nothing IllegalOperation "hPutBuf" "handle is not open for writing" Nothing (Just $ baseDir' FP.</> "foo")
+      @==? r
 
 iomodeWriteFile :: Assertion
 iomodeWriteFile = do
@@ -85,8 +84,8 @@ iomodeWriteFile = do
     baseDir <- OSP.encodeFS baseDir'
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) WriteMode $ \h -> BS.hGetContents h
-    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing Nothing
-      @==? first (\e -> e { ioe_filename = Nothing }) r
+    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing (Just $ baseDir' FP.</> "foo")
+      @==? r
 
 iomodeAppendFile :: Assertion
 iomodeAppendFile = do
@@ -94,8 +93,8 @@ iomodeAppendFile = do
     baseDir <- OSP.encodeFS baseDir'
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) AppendMode $ \h -> BS.hGetContents h
-    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing Nothing
-      @==? first (\e -> e { ioe_filename = Nothing }) r
+    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing (Just $ baseDir' FP.</> "foo")
+      @==? r
 
 iomodeReadWriteFile :: Assertion
 iomodeReadWriteFile = do

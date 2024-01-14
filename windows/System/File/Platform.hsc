@@ -1,11 +1,13 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeApplications #-}
 
 module System.File.Platform where
 
-import Control.Exception (bracketOnError)
+import Control.Exception (bracketOnError, try, SomeException)
 import Data.Bits
 import System.IO (IOMode(..), Handle)
 import System.OsPath.Windows ( WindowsPath )
+import qualified System.OsPath.Windows as WS
 import Foreign.C.Types
 import Foreign.Ptr (ptrToIntPtr)
 
@@ -48,7 +50,8 @@ openFile fp iomode = bracketOnError
   toHandle h = do
     when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
     fd <- _open_osfhandle (fromIntegral (ptrToIntPtr h)) (#const _O_BINARY)
-    fdToHandle' fd Nothing False ("<file descriptor: " ++ show fd ++ ">") iomode True
+    fp' <- either (const (fmap WS.toChar . WS.unpack $ fp)) id <$> try @SomeException (WS.decodeFS fp)
+    fdToHandle' fd Nothing False fp' iomode True
 #endif
   accessMode = case iomode of
     ReadMode      -> Win32.gENERIC_READ
