@@ -3,7 +3,7 @@
 
 module System.File.Platform where
 
-import Control.Exception (bracketOnError, try, SomeException)
+import Control.Exception (bracketOnError, try, SomeException, onException)
 import Data.Bits
 import System.IO (IOMode(..), Handle)
 import System.OsPath.Windows ( WindowsPath )
@@ -43,11 +43,11 @@ openFile fp iomode = bracketOnError
     toHandle
  where
 #if defined(__IO_MANAGER_WINIO__)
-  toHandle h = do
+  toHandle h = (`onException` Win32.closeHandle h) $ do
     when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
     Win32.hANDLEToHandle h
 #else
-  toHandle h = do
+  toHandle h = (`onException` Win32.closeHandle h) $ do
     when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
     fd <- _open_osfhandle (fromIntegral (ptrToIntPtr h)) (#const _O_BINARY)
     fp' <- either (const (fmap WS.toChar . WS.unpack $ fp)) id <$> try @SomeException (WS.decodeFS fp)
