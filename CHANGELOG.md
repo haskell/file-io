@@ -1,5 +1,10 @@
 # Revision history for file-io
 
+## 0.1.2 -- 2024-05-27
+
+* expose internals via `.Internal` modules
+* add `openFileWithCloseOnExec` and `openExistingFileWithCloseOnExec` to `.Internal` modules wrt [#21](https://github.com/hasufell/file-io/issues/21)
+
 ## 0.1.1 -- 2024-01-20
 
 * fix a severe bug on windows, where `readFile` may create a missing file, wrt [#14](https://github.com/hasufell/file-io/issues/14)

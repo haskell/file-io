@@ -129,3 +129,9 @@ foreign import ccall "_open_osfhandle"
   _open_osfhandle :: CIntPtr -> CInt -> IO CInt
 #endif
 
+openFileWithCloseOnExec :: WindowsPath -> IOMode -> IO Handle
+openFileWithCloseOnExec = openFile
+
+openExistingFileWithCloseOnExec :: WindowsPath -> IOMode -> IO Handle
+openExistingFileWithCloseOnExec = openExistingFile
+
