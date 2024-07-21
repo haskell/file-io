@@ -10,7 +10,7 @@ import Control.Exception
 import qualified System.FilePath as FP
 import Test.Tasty
 import Test.Tasty.HUnit
-import System.OsPath ((</>), osp)
+import System.OsPath ((</>), osp, OsPath, OsString)
 import qualified System.OsPath as OSP
 import qualified System.File.OsPath as OSP
 import GHC.IO.Exception (IOErrorType(..), IOException(..))
@@ -40,6 +40,18 @@ main = defaultMain $ testGroup "All"
        , testCase "openExistingFile yes (Write)" existingFile2'
        , testCase "openExistingFile yes (Append)" existingFile3'
        , testCase "openExistingFile yes (ReadWrite)" existingFile4'
+       , testCase "openTempFile" (openTempFile2 OSP.openTempFile)
+       , testCase "openTempFile (reopen file)" (openTempFile1 OSP.openTempFile)
+       , testCase "openTempFile (filepaths different)" (openTempFile3 OSP.openTempFile)
+       , testCase "openBinaryTempFile" (openTempFile2 OSP.openBinaryTempFile)
+       , testCase "openBinaryTempFile (reopen file)" (openTempFile1 OSP.openBinaryTempFile)
+       , testCase "openBinaryTempFile (filepaths different)" (openTempFile3 OSP.openBinaryTempFile)
+       , testCase "openTempFileWithDefaultPermissions" (openTempFile2 OSP.openTempFileWithDefaultPermissions)
+       , testCase "openTempFileWithDefaultPermissions (reopen file)" (openTempFile1 OSP.openTempFileWithDefaultPermissions)
+       , testCase "openTempFileWithDefaultPermissions (filepaths different)" (openTempFile3 OSP.openTempFileWithDefaultPermissions)
+       , testCase "openBinaryTempFileWithDefaultPermissions" (openTempFile2 OSP.openBinaryTempFileWithDefaultPermissions)
+       , testCase "openBinaryTempFileWithDefaultPermissions (reopen file)" (openTempFile1 OSP.openBinaryTempFileWithDefaultPermissions)
+       , testCase "openBinaryTempFileWithDefaultPermissions (filepaths different)" (openTempFile3 OSP.openBinaryTempFileWithDefaultPermissions)
        ]
     ]
 
@@ -214,6 +226,38 @@ existingFile4' = do
         c' <- BS.hGetSome h 5
         pure (c, c')
     Right ("tx", "bootx") @=? r
+
+openTempFile1 :: (OsPath -> OsString -> IO (OsPath, Handle)) -> Assertion
+openTempFile1 open = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let file = [osp|foo.ext|]
+    (fp, h') <- open baseDir file
+    hClose h'
+    r <- try @IOException $ do
+      OSP.openExistingFile fp ReadWriteMode >>= \h -> BS.hPut h "boo" >> hClose h
+      OSP.readFile fp
+    Right "boo" @=? r
+
+openTempFile2 :: (OsPath -> OsString -> IO (OsPath, Handle)) -> Assertion
+openTempFile2 open = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let file = [osp|foo.ext|]
+    (fp, h) <- open baseDir file
+    r <- try @IOException $ do
+      BS.hPut h "boo" >> hClose h
+      OSP.readFile fp
+    Right "boo" @=? r
+
+openTempFile3 :: (OsPath -> OsString -> IO (OsPath, Handle)) -> Assertion
+openTempFile3 open = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let file = [osp|foo.ext|]
+    (fp,  _) <- open baseDir file
+    (fp', _) <- open baseDir file
+    (fp /= fp') @? "Filepaths are different"
 
 
 compareIOError :: forall a . (Eq a, Show a, HasCallStack) => IOException -> Either IOException a -> Assertion
