@@ -8,7 +8,7 @@ module System.File.OsPath.Internal where
 
 import qualified System.File.Platform as P
 
-import Prelude ((.), ($), String, IO, ioError, pure, either, const, flip, Maybe(..), fmap, (<$>), id, Bool(..), FilePath, (++), return, show, (>>=), (==), otherwise, errorWithoutStackTrace)
+import Prelude ((.), ($), String, IO, ioError, pure, either, const, flip, Maybe(..), fmap, (<$>), id, Bool(..), FilePath, (++), return, show, (>>=), (==), otherwise, errorWithoutStackTrace, userError)
 import GHC.IO (catchException)
 import GHC.IO.Exception (IOException(..))
 import GHC.IO.Handle (hClose_help)
@@ -17,7 +17,7 @@ import GHC.IO.Handle.Types (Handle__, Handle(..))
 import Control.Concurrent.MVar
 import Control.Monad (void, when)
 import Control.DeepSeq (force)
-import Control.Exception (SomeException, try, evaluate, mask, onException)
+import Control.Exception (SomeException, try, evaluate, mask, onException, throwIO)
 import System.IO (IOMode(..), hSetBinaryMode, hClose)
 import System.IO.Unsafe (unsafePerformIO)
 import System.OsString (osstr)
@@ -28,7 +28,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified System.OsString as OSS
 import System.Posix.Types (CMode)
-import GHC.Base (failIO)
 
 -- | Like 'openFile', but open the file in binary mode.
 -- On Windows, reading a file in text mode (which is the default)
@@ -234,7 +233,7 @@ openTempFile' :: String -> OsPath -> OsString -> Bool -> CMode
               -> IO (OsPath, Handle)
 openTempFile' loc (OsString tmp_dir) template@(OsString tmpl) binary mode
     | OSS.any (== OSP.pathSeparator) template
-    = failIO $ "openTempFile': Template string must not contain path separator characters: " ++ P.lenientDecode tmpl
+    = throwIO $ userError $ "openTempFile': Template string must not contain path separator characters: " ++ P.lenientDecode tmpl
     | otherwise = do
         (fp, hdl) <- P.findTempName (prefix, suffix) loc tmp_dir mode
         when binary $ hSetBinaryMode hdl True
