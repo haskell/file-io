@@ -105,11 +105,8 @@ openExistingFile fp iomode = bracketOnError
 #endif
       Nothing)
     Win32.closeHandle
-    toHandle'
+    (toHandle fp iomode)
  where
-  toHandle' h = do
-    when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
-    Win32.hANDLEToHandle h
   accessMode = case iomode of
     ReadMode      -> Win32.gENERIC_READ
     WriteMode     -> Win32.gENERIC_WRITE
