@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports   #-}
 
 module System.File.Platform where
 
@@ -11,12 +12,14 @@ import System.OsPath.Windows ( WindowsPath )
 import qualified System.OsPath.Windows as WS
 import Foreign.C.Types
 
-import System.OsString.Encoding
 import qualified System.OsString.Windows as WS hiding (decodeFS)
 import System.OsString.Windows ( pstr, WindowsString )
 import qualified System.Win32 as Win32
 import qualified System.Win32.WindowsString.File as WS
-import System.Win32.WindowsString.Types (withTString, withFilePath, peekTString)
+import System.Win32.WindowsString.Types (withTString, peekTString)
+#if MIN_VERSION_Win32(2, 14, 0)
+import System.Win32.WindowsString.Types (withFilePath)
+#endif
 import Control.Monad (when, void)
 #if defined(__IO_MANAGER_WINIO__)
 import GHC.IO.SubSystem
@@ -35,6 +38,17 @@ import Foreign.Storable
 import System.Posix.Types (CMode)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.Internals (c_getpid, o_EXCL)
+
+#if MIN_VERSION_filepath(1, 5, 0)
+import System.OsString.Encoding
+import "os-string" System.OsString.Internal.Types (WindowsString(..), WindowsChar(..))
+import qualified "os-string" System.OsString.Data.ByteString.Short as BC
+#else
+import Data.Coerce (coerce)
+import System.OsPath.Encoding
+import "filepath" System.OsString.Internal.Types (WindowsString(..), WindowsChar(..))
+import qualified "filepath" System.OsPath.Data.ByteString.Short.Word16 as BC
+#endif
 
 -- | Open a file and return the 'Handle'.
 openFile :: WindowsPath -> IOMode -> IO Handle
@@ -144,8 +158,12 @@ findTempName :: (WindowsString, WindowsString)
 findTempName (prefix, suffix) loc tmp_dir mode = go
  where
   go = do
-    let label = if WS.null prefix then [pstr|ghc|] else prefix
+    let label = if prefix == mempty then [pstr|ghc|] else prefix
+#if MIN_VERSION_Win32(2, 14, 0)
     withFilePath tmp_dir $ \c_tmp_dir ->
+#else
+    withTString tmp_dir $ \c_tmp_dir ->
+#endif
       withTString label $ \c_template ->
         withTString suffix $ \c_suffix ->
           with nullPtr $ \c_ptr -> do
@@ -199,5 +217,21 @@ toHandle fp iomode h = (`onException` Win32.closeHandle h) $ do
     fd <- _open_osfhandle (fromIntegral (ptrToIntPtr h)) (#const _O_BINARY)
     fp' <- either (const (fmap WS.toChar . WS.unpack $ fp)) id <$> try @SomeException (WS.decodeFS fp)
     fdToHandle' fd Nothing False fp' iomode True
+#endif
+
+#if !MIN_VERSION_filepath(1, 5, 0)
+
+break_ :: (WindowsChar -> Bool) -> WindowsString -> (WindowsString, WindowsString)
+break_ = coerce BC.break
+
+reverse_ :: WindowsString -> WindowsString
+reverse_ = coerce BC.reverse
+
+any_ :: (WindowsChar -> Bool) -> WindowsString -> Bool
+any_ = coerce BC.any
+
+cons_ :: WindowsChar -> WindowsString -> WindowsString
+cons_ = coerce BC.cons
+
 #endif
 

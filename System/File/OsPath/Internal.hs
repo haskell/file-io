@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -8,7 +9,7 @@ module System.File.OsPath.Internal where
 
 import qualified System.File.Platform as P
 
-import Prelude ((.), ($), String, IO, ioError, pure, either, const, flip, Maybe(..), fmap, (<$>), id, Bool(..), FilePath, (++), return, show, (>>=), (==), otherwise, errorWithoutStackTrace, userError)
+import Prelude ((.), ($), String, IO, ioError, pure, either, const, flip, Maybe(..), fmap, (<$>), id, Bool(..), FilePath, (++), return, show, (>>=), (==), otherwise, errorWithoutStackTrace, userError, mempty)
 import GHC.IO (catchException)
 import GHC.IO.Exception (IOException(..))
 import GHC.IO.Handle (hClose_help)
@@ -20,7 +21,6 @@ import Control.DeepSeq (force)
 import Control.Exception (SomeException, try, evaluate, mask, onException, throwIO)
 import System.IO (IOMode(..), hSetBinaryMode, hClose)
 import System.IO.Unsafe (unsafePerformIO)
-import System.OsString (osstr)
 import System.OsPath as OSP
 import System.OsString.Internal.Types
 
@@ -28,6 +28,9 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified System.OsString as OSS
 import System.Posix.Types (CMode)
+#if !MIN_VERSION_filepath(1, 5, 0)
+import Data.Coerce
+#endif
 
 -- | Like 'openFile', but open the file in binary mode.
 -- On Windows, reading a file in text mode (which is the default)
@@ -232,7 +235,7 @@ augmentError str osfp = flip catchException (ioError . addFilePathToIOError str 
 openTempFile' :: String -> OsPath -> OsString -> Bool -> CMode
               -> IO (OsPath, Handle)
 openTempFile' loc (OsString tmp_dir) template@(OsString tmpl) binary mode
-    | OSS.any (== OSP.pathSeparator) template
+    | any_ (== OSP.pathSeparator) template
     = throwIO $ userError $ "openTempFile': Template string must not contain path separator characters: " ++ P.lenientDecode tmpl
     | otherwise = do
         (fp, hdl) <- P.findTempName (prefix, suffix) loc tmp_dir mode
@@ -243,18 +246,45 @@ openTempFile' loc (OsString tmp_dir) template@(OsString tmpl) binary mode
     -- for temporary files (hidden on Unix OSes). Unfortunately we're
     -- below filepath in the hierarchy here.
     (OsString prefix, OsString suffix) =
-       case OSS.break (== OSS.unsafeFromChar '.') $ OSS.reverse template of
+       case break_ (== OSS.unsafeFromChar '.') $ reverse_ template of
          -- First case: template contains no '.'s. Just re-reverse it.
-         (rev_suffix, [osstr||])       -> (OSS.reverse rev_suffix, OSS.empty)
+         (rev_suffix, xs)
+           | xs == mempty -> (reverse_ rev_suffix, mempty)
          -- Second case: template contains at least one '.'. Strip the
          -- dot from the prefix and prepend it to the suffix (if we don't
          -- do this, the unique number will get added after the '.' and
          -- thus be part of the extension, which is wrong.)
          (rev_suffix, xs)
            | (h:rest) <- OSS.unpack xs
-           , h == unsafeFromChar '.' -> (OSS.reverse (OSS.pack rest), OSS.cons (unsafeFromChar '.') $ OSS.reverse rev_suffix)
+           , h == unsafeFromChar '.' -> (reverse_ (OSS.pack rest), cons_ (unsafeFromChar '.') $ reverse_ rev_suffix)
          -- Otherwise, something is wrong, because (break (== '.')) should
          -- always return a pair with either the empty string or a string
          -- beginning with '.' as the second component.
          _                      -> errorWithoutStackTrace "bug in System.IO.openTempFile"
+
+#if MIN_VERSION_filepath(1, 5, 0)
+any_ :: (OsChar -> Bool) -> OsString -> Bool
+any_ = OSS.any
+
+cons_ :: OsChar -> OsString -> OsString
+cons_ = OSS.cons
+
+break_ :: (OsChar -> Bool) -> OsString -> (OsString, OsString)
+break_ = OSS.break
+
+reverse_ :: OsString -> OsString
+reverse_ = OSS.reverse
+#else
+any_ :: (OsChar -> Bool) -> OsString -> Bool
+any_ = coerce P.any_
+
+cons_ :: OsChar -> OsString -> OsString
+cons_ = coerce P.cons_
+
+break_ :: (OsChar -> Bool) -> OsString -> (OsString, OsString)
+break_ = coerce P.break_
+
+reverse_ :: OsString -> OsString
+reverse_ = coerce P.reverse_
+#endif
 

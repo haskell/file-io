@@ -1,5 +1,7 @@
+{-# LANGUAGE CPP              #-}
 {-# LANGUAGE TupleSections    #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PackageImports   #-}
 
 module System.File.Platform where
 
@@ -23,6 +25,15 @@ import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.Internals (c_getpid)
 import GHC.IORef (atomicModifyIORef'_)
 import Foreign.C (getErrno, eEXIST, errnoToIOError)
+
+#if MIN_VERSION_filepath(1, 5, 0)
+import "os-string" System.OsString.Internal.Types (PosixString(..), PosixChar(..))
+import qualified "os-string" System.OsString.Data.ByteString.Short as BC
+#else
+import Data.Coerce (coerce)
+import "filepath" System.OsString.Internal.Types (PosixString(..), PosixChar(..))
+import qualified "filepath" System.OsPath.Data.ByteString.Short as BC
+#endif
 
 -- | Open a file and return the 'Handle'.
 openFile :: PosixPath -> IOMode -> IO Handle
@@ -110,4 +121,20 @@ lenientDecode ps = let utf8' = PS.decodeWith utf8 ps
                         (Right s, ~_) -> s
                         (_, Right s) -> s
                         (Left _, Left _) -> error "lenientDecode: failed to decode"
+
+#if !MIN_VERSION_filepath(1, 5, 0)
+
+break_ :: (PosixChar -> Bool) -> PosixString -> (PosixString, PosixString)
+break_ = coerce BC.break
+
+reverse_ :: PosixString -> PosixString
+reverse_ = coerce BC.reverse
+
+any_ :: (PosixChar -> Bool) -> PosixString -> Bool
+any_ = coerce BC.any
+
+cons_ :: PosixChar -> PosixString -> PosixString
+cons_ = coerce BC.cons
+
+#endif
 
