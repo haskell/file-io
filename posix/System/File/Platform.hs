@@ -34,6 +34,8 @@ import Data.Coerce (coerce)
 import "filepath" System.OsString.Internal.Types (PosixString(..), PosixChar(..))
 import qualified "filepath" System.OsPath.Data.ByteString.Short as BC
 #endif
+import System.CPUTime (cpuTimePrecision, getCPUTime)
+import Text.Printf (printf)
 
 -- | Open a file and return the 'Handle'.
 openFile :: PosixPath -> IOMode -> IO Handle
@@ -110,9 +112,10 @@ tempCounter = unsafePerformIO $ newIORef 0
 -- build large digit-alike number
 rand_string :: IO PosixString
 rand_string = do
-  r1 <- c_getpid
+  r1 <- fromIntegral @_ @Int <$> c_getpid
   (r2, _) <- atomicModifyIORef'_ tempCounter (+1)
-  return $ PS.pack $ fmap (PS.unsafeFromChar) (show r1 ++ "-" ++ show r2)
+  r3 <- (`quot` cpuTimePrecision) <$> getCPUTime
+  return $ PS.pack $ fmap (PS.unsafeFromChar) (printf "%x-%x-%x" r1 r2 r3)
 
 lenientDecode :: PosixString -> String
 lenientDecode ps = let utf8' = PS.decodeWith utf8 ps
@@ -124,17 +127,8 @@ lenientDecode ps = let utf8' = PS.decodeWith utf8 ps
 
 #if !MIN_VERSION_filepath(1, 5, 0)
 
-break_ :: (PosixChar -> Bool) -> PosixString -> (PosixString, PosixString)
-break_ = coerce BC.break
-
-reverse_ :: PosixString -> PosixString
-reverse_ = coerce BC.reverse
-
 any_ :: (PosixChar -> Bool) -> PosixString -> Bool
 any_ = coerce BC.any
-
-cons_ :: PosixChar -> PosixString -> PosixString
-cons_ = coerce BC.cons
 
 #endif
 

@@ -9,7 +9,7 @@ module System.File.OsPath.Internal where
 
 import qualified System.File.Platform as P
 
-import Prelude ((.), ($), String, IO, ioError, pure, either, const, flip, Maybe(..), fmap, (<$>), id, Bool(..), FilePath, (++), return, show, (>>=), (==), otherwise, errorWithoutStackTrace, userError, mempty)
+import Prelude ((.), ($), String, IO, ioError, pure, either, const, flip, Maybe(..), fmap, (<$>), id, Bool(..), FilePath, (++), return, show, (>>=), (==), otherwise, userError)
 import GHC.IO (catchException)
 import GHC.IO.Exception (IOException(..))
 import GHC.IO.Handle (hClose_help)
@@ -26,9 +26,10 @@ import System.OsString.Internal.Types
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import qualified System.OsString as OSS
 import System.Posix.Types (CMode)
-#if !MIN_VERSION_filepath(1, 5, 0)
+#if MIN_VERSION_filepath(1, 5, 0)
+import qualified System.OsString as OSS
+#else
 import Data.Coerce
 #endif
 
@@ -245,46 +246,15 @@ openTempFile' loc (OsString tmp_dir) template@(OsString tmpl) binary mode
     -- We split off the last extension, so we can use .foo.ext files
     -- for temporary files (hidden on Unix OSes). Unfortunately we're
     -- below filepath in the hierarchy here.
-    (OsString prefix, OsString suffix) =
-       case break_ (== OSS.unsafeFromChar '.') $ reverse_ template of
-         -- First case: template contains no '.'s. Just re-reverse it.
-         (rev_suffix, xs)
-           | xs == mempty -> (reverse_ rev_suffix, mempty)
-         -- Second case: template contains at least one '.'. Strip the
-         -- dot from the prefix and prepend it to the suffix (if we don't
-         -- do this, the unique number will get added after the '.' and
-         -- thus be part of the extension, which is wrong.)
-         (rev_suffix, xs)
-           | (h:rest) <- OSS.unpack xs
-           , h == unsafeFromChar '.' -> (reverse_ (OSS.pack rest), cons_ (unsafeFromChar '.') $ reverse_ rev_suffix)
-         -- Otherwise, something is wrong, because (break (== '.')) should
-         -- always return a pair with either the empty string or a string
-         -- beginning with '.' as the second component.
-         _                      -> errorWithoutStackTrace "bug in System.IO.openTempFile"
+    (OsString prefix, OsString suffix) = OSP.splitExtension template
 
 #if MIN_VERSION_filepath(1, 5, 0)
 any_ :: (OsChar -> Bool) -> OsString -> Bool
 any_ = OSS.any
 
-cons_ :: OsChar -> OsString -> OsString
-cons_ = OSS.cons
-
-break_ :: (OsChar -> Bool) -> OsString -> (OsString, OsString)
-break_ = OSS.break
-
-reverse_ :: OsString -> OsString
-reverse_ = OSS.reverse
 #else
 any_ :: (OsChar -> Bool) -> OsString -> Bool
 any_ = coerce P.any_
 
-cons_ :: OsChar -> OsString -> OsString
-cons_ = coerce P.cons_
-
-break_ :: (OsChar -> Bool) -> OsString -> (OsString, OsString)
-break_ = coerce P.break_
-
-reverse_ :: OsString -> OsString
-reverse_ = coerce P.reverse_
 #endif
 

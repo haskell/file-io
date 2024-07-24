@@ -35,9 +35,11 @@ import Foreign.Ptr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Utils (with)
 import Foreign.Storable
+import System.CPUTime (cpuTimePrecision, getCPUTime)
 import System.Posix.Types (CMode)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.Internals (c_getpid, o_EXCL)
+import Text.Printf (printf)
 
 #if MIN_VERSION_filepath(1, 5, 0)
 import System.OsString.Encoding
@@ -193,9 +195,10 @@ tempCounter = unsafePerformIO $ newIORef 0
 -- build large digit-alike number
 rand_string :: IO WindowsPath
 rand_string = do
-  r1 <- c_getpid
+  r1 <- fromIntegral @_ @Int <$> c_getpid
   (r2, _) <- atomicModifyIORef'_ tempCounter (+1)
-  return $ WS.pack $ fmap (WS.unsafeFromChar) (show r1 ++ "-" ++ show r2)
+  r3 <- (`quot` cpuTimePrecision) <$> getCPUTime
+  return $ WS.pack $ fmap (WS.unsafeFromChar) (printf "%x-%x-%x" r1 r2 r3)
 
 lenientDecode :: WindowsString -> String
 lenientDecode ws = let utf16le' = WS.decodeWith utf16le_b ws
@@ -221,17 +224,8 @@ toHandle fp iomode h = (`onException` Win32.closeHandle h) $ do
 
 #if !MIN_VERSION_filepath(1, 5, 0)
 
-break_ :: (WindowsChar -> Bool) -> WindowsString -> (WindowsString, WindowsString)
-break_ = coerce BC.break
-
-reverse_ :: WindowsString -> WindowsString
-reverse_ = coerce BC.reverse
-
 any_ :: (WindowsChar -> Bool) -> WindowsString -> Bool
 any_ = coerce BC.any
-
-cons_ :: WindowsChar -> WindowsString -> WindowsString
-cons_ = coerce BC.cons
 
 #endif
 
