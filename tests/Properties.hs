@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
@@ -124,8 +125,9 @@ concFile = do
     baseDir <- OSP.encodeFS baseDir'
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp ""
-    _ <- OSP.openFile fp ReadMode
+    !h <- OSP.openFile fp ReadMode
     r <- try @IOException $ OSP.withFile fp WriteMode $ \h' -> do BS.hPut h' "test"
+    _ <- try @IOException $ BS.hPut h ""
     IOError Nothing fileLockedType "withFile" fileLockedMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
 
 concFile2 :: Assertion
@@ -134,8 +136,9 @@ concFile2 = do
     baseDir <- OSP.encodeFS baseDir'
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp "h"
-    _ <- OSP.openFile fp ReadMode
+    !h <- OSP.openFile fp ReadMode
     r <- try @IOException $ OSP.withFile fp ReadMode BS.hGetContents
+    _ <- try @IOException $ BS.hPut h ""
     Right "h"  @=? r
 
 concFile3 :: Assertion
@@ -144,8 +147,9 @@ concFile3 = do
     baseDir <- OSP.encodeFS baseDir'
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp ""
-    _ <- OSP.openFile fp WriteMode
+    !h <- OSP.openFile fp ReadMode
     r <- try @IOException $ OSP.withFile fp WriteMode (flip BS.hPut "test")
+    _ <- try @IOException $ BS.hPut h ""
     IOError Nothing fileLockedType "withFile" fileLockedMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
 
 existingFile :: Assertion
@@ -221,9 +225,10 @@ existingFile4' = do
       OSP.openExistingFile fp ReadWriteMode >>= \h -> do
         hSetBuffering h NoBuffering
         BS.hPut h "boo"
-        c <- BS.hGetSome h 5
+        !c <- BS.hGetSome h 5
         hSeek h AbsoluteSeek 0
-        c' <- BS.hGetSome h 5
+        !c' <- BS.hGetSome h 5
+        hClose h
         pure (c, c')
     Right ("tx", "bootx") @=? r
 
@@ -232,7 +237,7 @@ openTempFile1 open = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
     let file = [osp|foo.ext|]
-    (fp, h') <- open baseDir file
+    (!fp, h') <- open baseDir file
     hClose h'
     r <- try @IOException $ do
       OSP.openExistingFile fp ReadWriteMode >>= \h -> BS.hPut h "boo" >> hClose h
@@ -255,8 +260,10 @@ openTempFile3 open = do
   withSystemTempDirectory "test" $ \baseDir' -> do
     baseDir <- OSP.encodeFS baseDir'
     let file = [osp|foo.ext|]
-    (fp,  _) <- open baseDir file
-    (fp', _) <- open baseDir file
+    (!fp,  h) <- open baseDir file
+    (!fp', h') <- open baseDir file
+    hClose h
+    hClose h'
     (fp /= fp') @? "Filepaths are different"
 
 
