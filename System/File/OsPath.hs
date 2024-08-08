@@ -23,6 +23,10 @@ module System.File.OsPath (
 , appendFile'
 , openFile
 , openExistingFile
+, openTempFile
+, openBinaryTempFile
+, openTempFileWithDefaultPermissions
+, openBinaryTempFileWithDefaultPermissions
 ) where
 
 

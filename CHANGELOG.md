@@ -1,5 +1,9 @@
 # Revision history for file-io
 
+## 0.1.3 -- 2024-??-??
+
+* add `openTempFile` , `openBinaryTempFile` , `openTempFileWithDefaultPermissions` and `openBinaryTempFileWithDefaultPermissions` wrt [#2](https://github.com/hasufell/file-io/issues/2)
+
 ## 0.1.2 -- 2024-05-27
 
 * expose internals via `.Internal` modules

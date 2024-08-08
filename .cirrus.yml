@@ -1,7 +1,7 @@
 task:
   name: FreeBSD
   freebsd_instance:
-    image_family: freebsd-13-2
+    image_family: freebsd-14-0
   install_script: pkg install -y ghc hs-cabal-install git autoconf
   script:
     - cabal update
@@ -26,7 +26,7 @@ task:
   name: NetBSD
   compute_engine_instance:
     image_project: pg-ci-images
-    image: family/pg-ci-netbsd-vanilla-9-3
+    image: family/pg-ci-netbsd-vanilla-10-0
     platform: netbsd
   install_script:
     - export PKG_PATH="http://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/$(uname -p)/$(uname -r|cut -f '1 2' -d.)/All/"

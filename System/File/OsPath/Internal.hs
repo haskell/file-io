@@ -1,12 +1,15 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module System.File.OsPath.Internal where
 
 
 import qualified System.File.Platform as P
 
-import Prelude ((.), ($), String, IO, ioError, pure, either, const, flip, Maybe(..), fmap, (<$>), id, Bool(..), FilePath, (++), return, show, (>>=))
+import Prelude ((.), ($), String, IO, ioError, pure, either, const, flip, Maybe(..), fmap, (<$>), id, Bool(..), FilePath, (++), return, show, (>>=), (==), otherwise, userError)
 import GHC.IO (catchException)
 import GHC.IO.Exception (IOException(..))
 import GHC.IO.Handle (hClose_help)
@@ -15,7 +18,7 @@ import GHC.IO.Handle.Types (Handle__, Handle(..))
 import Control.Concurrent.MVar
 import Control.Monad (void, when)
 import Control.DeepSeq (force)
-import Control.Exception (SomeException, try, evaluate, mask, onException)
+import Control.Exception (SomeException, try, evaluate, mask, onException, throwIO)
 import System.IO (IOMode(..), hSetBinaryMode, hClose)
 import System.IO.Unsafe (unsafePerformIO)
 import System.OsPath as OSP
@@ -23,6 +26,12 @@ import System.OsString.Internal.Types
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import System.Posix.Types (CMode)
+#if MIN_VERSION_filepath(1, 5, 0)
+import qualified System.OsString as OSS
+#else
+import Data.Coerce
+#endif
 
 -- | Like 'openFile', but open the file in binary mode.
 -- On Windows, reading a file in text mode (which is the default)
@@ -127,6 +136,56 @@ openFileWithCloseOnExec osfp iomode = augmentError "openFileWithCloseOnExec" osf
 openExistingFileWithCloseOnExec :: OsPath -> IOMode -> IO Handle
 openExistingFileWithCloseOnExec osfp iomode = augmentError "openExistingFileWithCloseOnExec" osfp $ withOpenFile' osfp iomode False True True pure False
 
+
+-- | The function creates a temporary file in ReadWrite mode.
+-- The created file isn\'t deleted automatically, so you need to delete it manually.
+--
+-- The file is created with permissions such that only the current
+-- user can read\/write it.
+--
+-- With some exceptions (see below), the file will be created securely
+-- in the sense that an attacker should not be able to cause
+-- openTempFile to overwrite another file on the filesystem using your
+-- credentials, by putting symbolic links (on Unix) in the place where
+-- the temporary file is to be created.  On Unix the @O_CREAT@ and
+-- @O_EXCL@ flags are used to prevent this attack, but note that
+-- @O_EXCL@ is sometimes not supported on NFS filesystems, so if you
+-- rely on this behaviour it is best to use local filesystems only.
+--
+-- @since 0.1.3
+openTempFile :: OsPath     -- ^ Directory in which to create the file
+             -> OsString   -- ^ File name template. If the template is \"foo.ext\" then
+                           -- the created file will be \"fooXXX.ext\" where XXX is some
+                           -- random number. Note that this should not contain any path
+                           -- separator characters. On Windows, the template prefix may
+                           -- be truncated to 3 chars, e.g. \"foobar.ext\" will be
+                           -- \"fooXXX.ext\".
+             -> IO (OsPath, Handle)
+openTempFile tmp_dir template = openTempFile' "openTempFile" tmp_dir template False 0o600
+
+-- | Like 'openTempFile', but opens the file in binary mode. See 'openBinaryFile' for more comments.
+--
+-- @since 0.1.3
+openBinaryTempFile :: OsPath -> OsString -> IO (OsPath, Handle)
+openBinaryTempFile tmp_dir template
+    = openTempFile' "openBinaryTempFile" tmp_dir template True 0o600
+
+-- | Like 'openTempFile', but uses the default file permissions
+--
+-- @since 0.1.3
+openTempFileWithDefaultPermissions :: OsPath -> OsString
+                                   -> IO (OsPath, Handle)
+openTempFileWithDefaultPermissions tmp_dir template
+    = openTempFile' "openTempFileWithDefaultPermissions" tmp_dir template False 0o666
+
+-- | Like 'openBinaryTempFile', but uses the default file permissions
+--
+-- @since 0.1.3
+openBinaryTempFileWithDefaultPermissions :: OsPath -> OsString
+                                         -> IO (OsPath, Handle)
+openBinaryTempFileWithDefaultPermissions tmp_dir template
+    = openTempFile' "openBinaryTempFileWithDefaultPermissions" tmp_dir template True 0o666
+
 -- ---------------------------------------------------------------------------
 -- Internals
 
@@ -172,4 +231,30 @@ addFilePathToIOError fun fp ioe = unsafePerformIO $ do
 
 augmentError :: String -> OsPath -> IO a -> IO a
 augmentError str osfp = flip catchException (ioError . addFilePathToIOError str osfp)
+
+
+openTempFile' :: String -> OsPath -> OsString -> Bool -> CMode
+              -> IO (OsPath, Handle)
+openTempFile' loc (OsString tmp_dir) template@(OsString tmpl) binary mode
+    | any_ (== OSP.pathSeparator) template
+    = throwIO $ userError $ "openTempFile': Template string must not contain path separator characters: " ++ P.lenientDecode tmpl
+    | otherwise = do
+        (fp, hdl) <- P.findTempName (prefix, suffix) loc tmp_dir mode
+        when binary $ hSetBinaryMode hdl True
+        pure (OsString fp, hdl)
+  where
+    -- We split off the last extension, so we can use .foo.ext files
+    -- for temporary files (hidden on Unix OSes). Unfortunately we're
+    -- below filepath in the hierarchy here.
+    (OsString prefix, OsString suffix) = OSP.splitExtension template
+
+#if MIN_VERSION_filepath(1, 5, 0)
+any_ :: (OsChar -> Bool) -> OsString -> Bool
+any_ = OSS.any
+
+#else
+any_ :: (OsChar -> Bool) -> OsString -> Bool
+any_ = coerce P.any_
+
+#endif
 
