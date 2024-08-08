@@ -1,6 +1,6 @@
 # Revision history for file-io
 
-## 0.1.3 -- 2024-??-??
+## 0.1.3 -- 2024-08-08
 
 * add `openTempFile` , `openBinaryTempFile` , `openTempFileWithDefaultPermissions` and `openBinaryTempFileWithDefaultPermissions` wrt [#2](https://github.com/hasufell/file-io/issues/2)
 
