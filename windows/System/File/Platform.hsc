@@ -102,7 +102,7 @@ writeShareMode =
   Win32.fILE_SHARE_DELETE .|.
   Win32.fILE_SHARE_READ
 
-  -- | Open an existing file and return the 'Handle'.
+-- | Open an existing file and return the 'Handle'.
 openExistingFile :: WindowsPath -> IOMode -> IO Handle
 openExistingFile fp iomode = bracketOnError
     (WS.createFile
@@ -168,6 +168,7 @@ findTempName (prefix, suffix) loc tmp_dir mode = go
 #endif
       withTString label $ \c_template ->
         withTString suffix $ \c_suffix ->
+#if MIN_VERSION_base(4, 15, 0)
           with nullPtr $ \c_ptr -> do
             res <- c_createUUIDTempFileErrNo c_tmp_dir c_template c_suffix c_ptr
             if not res
@@ -178,13 +179,31 @@ findTempName (prefix, suffix) loc tmp_dir mode = go
                        free c_p
                        let flags = fromIntegral mode .&. o_EXCL
                        handleResultsWinIO filename (flags == o_EXCL)
+#else
+            -- NOTE: revisit this when new I/O manager in place and use a UUID
+            --       based one when we are no longer MAX_PATH bound.
+            allocaBytes (sizeOf (undefined :: CWchar) * 260) $ \c_str -> do
+            res <- c_getTempFileNameErrorNo c_tmp_dir c_template c_suffix 0
+                                            c_str
+            if not res
+               then do errno <- getErrno
+                       ioError (errnoToIOError loc errno Nothing (Just $ lenientDecode tmp_dir))
+               else do filename <- peekTString c_str
+                       let flags = fromIntegral mode .&. o_EXCL
+                       handleResultsWinIO filename (flags == o_EXCL)
+#endif
 
   handleResultsWinIO filename excl = do
     h <- (if excl then openExistingFile else openFile) filename ReadWriteMode
     return (filename, h)
 
+#if MIN_VERSION_base(4, 15, 0)
 foreign import ccall "__createUUIDTempFileErrNo" c_createUUIDTempFileErrNo
   :: CWString -> CWString -> CWString -> Ptr CWString -> IO Bool
+#else
+foreign import ccall "getTempFileNameErrorNo" c_getTempFileNameErrorNo
+  :: CWString -> CWString -> CWString -> CUInt -> Ptr CWchar -> IO Bool
+#endif
 
 
 
