@@ -11,7 +11,7 @@ author:             Julian Ospald
 maintainer:         hasufell@posteo.de
 copyright:          Julian Ospald 2022
 category:           System
-extra-source-files:
+extra-doc-files:
   CHANGELOG.md
 tested-with:    GHC==9.8.1,
                 GHC==9.4.8,
@@ -38,13 +38,13 @@ library
 
   else
     hs-source-dirs: posix
-    build-depends: unix >=2.8.0.0
+    build-depends: unix >=2.8.0.0 && <3
 
   hs-source-dirs: .
   build-depends:
     , base        >=4.13.0.0 && <5
-    , bytestring  >=0.11.3.0
-    , deepseq
+    , bytestring  >=0.11.3.0 && <1
+    , deepseq     >=1        && <2
 
   if flag(os-string)
     build-depends: filepath >= 1.5.0.0, os-string >= 2.0.0
