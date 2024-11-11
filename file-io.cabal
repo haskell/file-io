@@ -6,6 +6,7 @@ description:        Basic file IO operations like Prelude, but for 'OsPath'.
 homepage:           https://github.com/hasufell/file-io
 bug-reports:        https://github.com/hasufell/file-io/issues
 license:            BSD-3-Clause
+license-file:       LICENSE
 author:             Julian Ospald
 maintainer:         hasufell@posteo.de
 copyright:          Julian Ospald 2022
