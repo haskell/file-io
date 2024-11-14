@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE QuasiQuotes #-}
 
 module System.File.OsPath.Internal where
 

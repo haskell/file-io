@@ -1,19 +1,19 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE PackageImports   #-}
 
 module System.File.Platform where
 
 import Control.Exception (bracketOnError, try, SomeException, onException)
 import Data.Bits
+import Data.Maybe (fromJust)
 import System.IO (IOMode(..), Handle)
 import System.OsPath.Windows ( WindowsPath )
 import qualified System.OsPath.Windows as WS
 import Foreign.C.Types
 
 import qualified System.OsString.Windows as WS hiding (decodeFS)
-import System.OsString.Windows ( pstr, WindowsString )
+import System.OsString.Windows ( encodeUtf, WindowsString )
 import qualified System.Win32 as Win32
 import qualified System.Win32.WindowsString.File as WS
 import System.Win32.WindowsString.Types (withTString, peekTString)
@@ -160,7 +160,7 @@ findTempName :: (WindowsString, WindowsString)
 findTempName (prefix, suffix) loc tmp_dir mode = go
  where
   go = do
-    let label = if prefix == mempty then [pstr|ghc|] else prefix
+    let label = if prefix == mempty then fromJust (encodeUtf "ghc") else prefix
 #if MIN_VERSION_Win32(2, 14, 0)
     withFilePath tmp_dir $ \c_tmp_dir ->
 #else
