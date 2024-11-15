@@ -1,5 +1,9 @@
 # Revision history for file-io
 
+## 0.1.5 -- 20XX-XX-XX
+
+* Don't use QuasiQotes
+
 ## 0.1.4 -- 2024-08-10
 
 * fix build on GHC <= 8.10
