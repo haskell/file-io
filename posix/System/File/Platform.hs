@@ -26,10 +26,7 @@ import System.Posix.Internals (c_getpid)
 import GHC.IORef (atomicModifyIORef'_)
 import Foreign.C (getErrno, eEXIST, errnoToIOError)
 
-#if MIN_VERSION_filepath(1, 5, 0)
-import "os-string" System.OsString.Internal.Types (PosixString(..), PosixChar(..))
-import qualified "os-string" System.OsString.Data.ByteString.Short as BC
-#else
+#if !MIN_VERSION_filepath(1, 5, 0)
 import Data.Coerce (coerce)
 import "filepath" System.OsString.Internal.Types (PosixString(..), PosixChar(..))
 import qualified "filepath" System.OsPath.Data.ByteString.Short as BC
