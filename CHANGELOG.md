@@ -3,6 +3,7 @@
 ## 0.1.5 -- 20XX-XX-XX
 
 * Don't use QuasiQotes
+* Remove redundant imports
 
 ## 0.1.4 -- 2024-08-10
 
