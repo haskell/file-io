@@ -1,6 +1,6 @@
 # Revision history for file-io
 
-## 0.1.5 -- 20XX-XX-XX
+## 0.1.5 -- 2024-11-26
 
 * Don't use QuasiQotes
 * Remove redundant imports
