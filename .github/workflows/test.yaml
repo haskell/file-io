@@ -21,8 +21,6 @@ jobs:
           - os: macOS-13
             ghc: '9.6'
           - os: windows-latest
-            ghc: '8.10'
-          - os: windows-latest
             ghc: '9.4'
           - os: windows-latest
             ghc: '9.6'
