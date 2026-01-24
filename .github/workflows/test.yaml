@@ -74,15 +74,9 @@ jobs:
       run: |
         set -eux
         cabal update
-        # see https://github.com/haskell/file-io/issues/47
-        if [[ "[${{ matrix.ghc }}" =~ "9.14." ]] ; then
-          cabal configure --disable-tests
-          cabal build
-        else
-          cabal configure --enable-tests
-          cabal build
-          cabal test
-        fi
+        cabal configure --enable-tests
+        cabal build
+        cabal test
         cabal haddock
         cabal check
         cabal sdist
