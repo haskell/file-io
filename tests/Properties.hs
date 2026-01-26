@@ -8,7 +8,6 @@
 module Main where
 
 import Control.Exception
-import qualified System.FilePath as FP
 import Test.Tasty
 import Test.Tasty.HUnit
 import System.OsPath ((</>), osp, OsPath, OsString)
@@ -16,8 +15,8 @@ import qualified System.OsPath as OSP
 import qualified System.File.OsPath as OSP
 import GHC.IO.Exception (IOErrorType(..), IOException(..))
 import System.IO
-import System.IO.Temp
 import qualified Data.ByteString as BS
+import TestUtils
 
 
 main :: IO ()
@@ -58,16 +57,14 @@ main = defaultMain $ testGroup "All"
 
 writeFileReadFile :: Assertion
 writeFileReadFile = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     OSP.writeFile (baseDir </> [osp|foo|]) "test"
     contents <- OSP.readFile (baseDir </> [osp|foo|])
     "test" @=? contents
 
 writeWriteFileReadFile :: Assertion
 writeWriteFileReadFile = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     OSP.writeFile (baseDir </> [osp|foo|]) "lol"
     OSP.writeFile (baseDir </> [osp|foo|]) "test"
     contents <- OSP.readFile (baseDir </> [osp|foo|])
@@ -75,8 +72,7 @@ writeWriteFileReadFile = do
 
 appendFileReadFile :: Assertion
 appendFileReadFile = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     OSP.writeFile (baseDir </> [osp|foo|]) "test"
     OSP.appendFile (baseDir </> [osp|foo|]) "test"
     contents <- OSP.readFile (baseDir </> [osp|foo|])
@@ -84,35 +80,31 @@ appendFileReadFile = do
 
 iomodeReadFile :: Assertion
 iomodeReadFile = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) ReadMode $ \h -> BS.hPut h "test"
-    IOError Nothing IllegalOperation "hPutBuf" "handle is not open for writing" Nothing (Just $ baseDir' FP.</> "foo")
+    IOError Nothing IllegalOperation "hPutBuf" "handle is not open for writing" Nothing (Just $ so $ baseDir </> [osp|foo|])
       @==? r
 
 iomodeWriteFile :: Assertion
 iomodeWriteFile = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) WriteMode $ \h -> BS.hGetContents h
-    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing (Just $ baseDir' FP.</> "foo")
+    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing (Just $ so $ baseDir </> [osp|foo|])
       @==? r
 
 iomodeAppendFile :: Assertion
 iomodeAppendFile = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) AppendMode $ \h -> BS.hGetContents h
-    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing (Just $ baseDir' FP.</> "foo")
+    IOError Nothing IllegalOperation "hGetBuf" "handle is not open for reading" Nothing (Just $ so $ baseDir </> [osp|foo|])
       @==? r
 
 iomodeReadWriteFile :: Assertion
 iomodeReadWriteFile = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     OSP.writeFile (baseDir </> [osp|foo|]) ""
     r <- try @IOException $ OSP.withFile (baseDir </> [osp|foo|]) ReadWriteMode $ \h -> do
       BS.hPut h "test"
@@ -121,19 +113,17 @@ iomodeReadWriteFile = do
 
 concFile :: Assertion
 concFile = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp ""
     !h <- OSP.openFile fp ReadMode
     r <- try @IOException $ OSP.withFile fp WriteMode $ \h' -> do BS.hPut h' "test"
     _ <- try @IOException $ BS.hPut h ""
-    IOError Nothing fileLockedType "withFile" fileLockedMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
+    IOError Nothing fileLockedType "withFile" fileLockedMsg Nothing (Just $ so $ baseDir </> [osp|foo|]) @==? r
 
 concFile2 :: Assertion
 concFile2 = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp "h"
     !h <- OSP.openFile fp ReadMode
@@ -143,51 +133,45 @@ concFile2 = do
 
 concFile3 :: Assertion
 concFile3 = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp ""
     !h <- OSP.openFile fp ReadMode
     r <- try @IOException $ OSP.withFile fp WriteMode (flip BS.hPut "test")
     _ <- try @IOException $ BS.hPut h ""
-    IOError Nothing fileLockedType "withFile" fileLockedMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
+    IOError Nothing fileLockedType "withFile" fileLockedMsg Nothing (Just $ so $ baseDir </> [osp|foo|]) @==? r
 
 existingFile :: Assertion
 existingFile = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     r <- try @IOException $ OSP.openExistingFile fp ReadMode
-    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
+    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ so $ baseDir </> [osp|foo|]) @==? r
 
 existingFile2 :: Assertion
 existingFile2 = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     r <- try @IOException $ OSP.openExistingFile fp WriteMode
-    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
+    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ so $ baseDir </> [osp|foo|]) @==? r
 
 existingFile3 :: Assertion
 existingFile3 = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     r <- try @IOException $ OSP.openExistingFile fp AppendMode
-    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
+    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ so $ baseDir </> [osp|foo|]) @==? r
 
 existingFile4 :: Assertion
 existingFile4 = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     r <- try @IOException $ OSP.openExistingFile fp AppendMode
-    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ baseDir' FP.</> "foo") @==? r
+    IOError Nothing NoSuchThing "openExistingFile" noSuchFileMsg Nothing (Just $ so $ baseDir </> [osp|foo|]) @==? r
 
 existingFile' :: Assertion
 existingFile' = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp "test"
     r <- try @IOException $ (OSP.openExistingFile fp ReadMode >>= BS.hGetContents)
@@ -195,8 +179,7 @@ existingFile' = do
 
 existingFile2' :: Assertion
 existingFile2' = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp "test"
     r <- try @IOException $ do
@@ -206,8 +189,7 @@ existingFile2' = do
 
 existingFile3' :: Assertion
 existingFile3' = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp "test"
     r <- try @IOException $ do
@@ -217,8 +199,7 @@ existingFile3' = do
 
 existingFile4' :: Assertion
 existingFile4' = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let fp = baseDir </> [osp|foo|]
     OSP.writeFile fp "testx"
     r <- try @IOException $
@@ -234,8 +215,7 @@ existingFile4' = do
 
 openTempFile1 :: (OsPath -> OsString -> IO (OsPath, Handle)) -> Assertion
 openTempFile1 open = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let file = [osp|foo.ext|]
     (!fp, h') <- open baseDir file
     hClose h'
@@ -246,8 +226,7 @@ openTempFile1 open = do
 
 openTempFile2 :: (OsPath -> OsString -> IO (OsPath, Handle)) -> Assertion
 openTempFile2 open = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let file = [osp|foo.ext|]
     (fp, h) <- open baseDir file
     r <- try @IOException $ do
@@ -257,8 +236,7 @@ openTempFile2 open = do
 
 openTempFile3 :: (OsPath -> OsString -> IO (OsPath, Handle)) -> Assertion
 openTempFile3 open = do
-  withSystemTempDirectory "test" $ \baseDir' -> do
-    baseDir <- OSP.encodeFS baseDir'
+  withFileIOTestDir $ \baseDir -> do
     let file = [osp|foo.ext|]
     (!fp,  h) <- open baseDir file
     (!fp', h') <- open baseDir file

@@ -7,16 +7,15 @@ import Control.Concurrent
 import Control.Monad
 import System.File.OsPath
 import System.OsPath
-import System.IO.Temp
+import TestUtils
 
 import qualified Data.ByteString.Lazy as BL
 import qualified System.OsPath as OSP
 import qualified System.File.OsPath as OSP
 
 main :: IO ()
-main = withSystemTempDirectory "test" $ \baseDir' -> do
+main = withFileIOTestDir $ \baseDir -> do
     let fn = [osp|test.txt|]
-    baseDir <- OSP.encodeFS baseDir'
     let fp = baseDir OSP.</> fn
     OSP.writeFile fp ""
 
