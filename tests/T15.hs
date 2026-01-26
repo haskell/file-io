@@ -9,13 +9,12 @@ import System.OsPath ((</>), osp)
 import qualified System.OsPath as OSP
 import qualified System.File.OsPath as OSP
 import System.IO
-import System.IO.Temp
+import TestUtils
 
 -- Test that we can read concurrently without file lock
 -- https://github.com/hasufell/file-io/issues/15
 main :: IO ()
-main = withSystemTempDirectory "tar-test" $ \baseDir' -> do
-  baseDir <- OSP.encodeFS baseDir'
+main = withFileIOTestDir $ \baseDir -> do
   OSP.writeFile (baseDir </> [osp|foo|]) ""
   defaultMain $ testGroup "All"
     [ testGroup "System.File.OsPath"

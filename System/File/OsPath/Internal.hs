@@ -162,6 +162,18 @@ openTempFile :: OsPath     -- ^ Directory in which to create the file
              -> IO (OsPath, Handle)
 openTempFile tmp_dir template = openTempFile' "openTempFile" tmp_dir template False 0o600
 
+-- | The function creates a temporary directory.
+--
+-- @since 0.1.6
+createTempDirectory :: OsPath     -- ^ Directory in which to create the file
+                    -> OsString   -- ^ Directory name template. If the template is \"foo\" then
+                                  -- the created directory will be \"fooXXX\" where XXX is some
+                                  -- random number. Note that this should not contain any path
+                                  -- separator characters. On Windows, the template may
+                                  -- be truncated to 3 chars.
+                    -> IO OsPath
+createTempDirectory tmp_dir template = createTempDirectory' "createTempDirectory" tmp_dir template 0o700
+
 -- | Like 'openTempFile', but opens the file in binary mode. See 'openBinaryFile' for more comments.
 --
 -- @since 0.1.3
@@ -246,6 +258,15 @@ openTempFile' loc (OsString tmp_dir) template@(OsString tmpl) binary mode
     -- for temporary files (hidden on Unix OSes). Unfortunately we're
     -- below filepath in the hierarchy here.
     (OsString prefix, OsString suffix) = OSP.splitExtension template
+
+createTempDirectory' :: String -> OsPath -> OsString -> CMode
+                     -> IO OsPath
+createTempDirectory' loc (OsString tmp_dir) template@(OsString tmpl) mode
+    | any_ (== OSP.pathSeparator) template
+    = throwIO $ userError $ "createTempDirectory': Template string must not contain path separator characters: " ++ P.lenientDecode tmpl
+    | otherwise = do
+        fp <- P.findTempDName tmpl loc tmp_dir mode
+        pure (OsString fp)
 
 #if MIN_VERSION_filepath(1, 5, 0)
 any_ :: (OsChar -> Bool) -> OsString -> Bool

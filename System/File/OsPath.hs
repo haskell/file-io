@@ -27,6 +27,7 @@ module System.File.OsPath (
 , openBinaryTempFile
 , openTempFileWithDefaultPermissions
 , openBinaryTempFileWithDefaultPermissions
+, createTempDirectory
 ) where
 
 

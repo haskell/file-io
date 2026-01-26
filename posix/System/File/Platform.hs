@@ -20,7 +20,9 @@ import System.OsPath.Posix ( PosixPath, PosixString, (</>) )
 import qualified System.OsPath.Posix as PS
 import Data.IORef (IORef, newIORef)
 import System.Posix (CMode)
+import System.Posix.Directory.PosixPath (createDirectory)
 import System.IO (utf8, latin1)
+import System.IO.Error (isAlreadyExistsError)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.Internals (c_getpid)
 import GHC.IORef (atomicModifyIORef'_)
@@ -101,6 +103,23 @@ findTempName (prefix, suffix) loc tmp_dir mode = go
 
   openTempFile_ :: PosixPath -> CMode -> IO Fd
   openTempFile_ fp cmode = openFd fp ReadWrite defaultFileFlags' { creat = Just cmode, nonBlock = True, noctty = True, exclusive = True }
+
+findTempDName :: PosixString
+              -> String
+              -> PosixPath
+              -> CMode
+              -> IO PosixPath
+findTempDName template _loc tmp_dir mode = go
+ where
+  go = do
+    rs <- rand_string
+    let dirname = template <> rs
+        dirpath = tmp_dir </> dirname
+    r <- try $ createDirectory dirpath mode
+    case r of
+      Right _ -> return dirpath
+      Left e | isAlreadyExistsError e -> go
+             | otherwise -> ioError e
 
 tempCounter :: IORef Int
 tempCounter = unsafePerformIO $ newIORef 0

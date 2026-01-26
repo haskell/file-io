@@ -61,56 +61,71 @@ library
 
   ghc-options:      -Wall
 
+
+common test-utils
+    other-modules: TestUtils
+    build-depends: os-string
+    if os(windows)
+      build-depends: Win32 >=2.13.3.0
+    else
+      build-depends: unix >=2.8.0.0 && <3
+
 test-suite T15
+    import: test-utils
     hs-source-dirs: tests
     main-is: T15.hs
     type: exitcode-stdio-1.0
     default-language: Haskell2010
-    build-depends: base >=4.13.0.0 && <5, tasty, tasty-hunit, file-io, filepath, temporary
+    build-depends: base >=4.13.0.0 && <5, tasty, tasty-hunit, file-io, filepath
     ghc-options: -Wall -threaded -rtsopts "-with-rtsopts=-N10"
     if os(windows)
       build-depends: Win32 >=2.13.3.0
 
 test-suite T15Win
+    import: test-utils
     hs-source-dirs: tests
     main-is: T15Win.hs
     type: exitcode-stdio-1.0
     default-language: Haskell2010
     if os(windows)
-      build-depends: base >=4.13.0.0 && <5, tasty, tasty-hunit, file-io, filepath, temporary, Win32 >=2.13.3.0
+      build-depends: base >=4.13.0.0 && <5, tasty, tasty-hunit, file-io, filepath, Win32 >=2.13.3.0
     else
-      build-depends: base >=4.13.0.0 && <5
+      build-depends: base >=4.13.0.0 && <5, filepath, file-io
     ghc-options: -Wall -threaded -rtsopts "-with-rtsopts=-N10"
 
 test-suite T14
+    import: test-utils
     hs-source-dirs: tests
     main-is: T14.hs
     type: exitcode-stdio-1.0
     default-language: Haskell2010
-    build-depends: base >=4.13.0.0 && <5, file-io, filepath, temporary
+    build-depends: base >=4.13.0.0 && <5, file-io, filepath
     ghc-options: -Wall
 
 test-suite T8
+    import: test-utils
     hs-source-dirs: tests
     main-is: T8.hs
     type: exitcode-stdio-1.0
     default-language: Haskell2010
-    build-depends: base >=4.13.0.0 && <5, bytestring, file-io, filepath, temporary
+    build-depends: base >=4.13.0.0 && <5, bytestring, file-io, filepath
     ghc-options: -Wall -threaded
 
 test-suite CLC237
+    import: test-utils
     hs-source-dirs: tests
     main-is: CLC237.hs
     type: exitcode-stdio-1.0
     default-language: Haskell2010
-    build-depends: base >=4.13.0.0 && <5, file-io, filepath, temporary
+    build-depends: base >=4.13.0.0 && <5, file-io, filepath
     ghc-options: -Wall
 
 test-suite Properties
+    import: test-utils
     hs-source-dirs: tests
     main-is: Properties.hs
     type: exitcode-stdio-1.0
     default-language: Haskell2010
-    build-depends: base >=4.13.0.0 && <5, bytestring, tasty, tasty-hunit, file-io, filepath, temporary
+    build-depends: base >=4.13.0.0 && <5, bytestring, tasty, tasty-hunit, file-io, filepath
     ghc-options: -Wall -threaded -rtsopts "-with-rtsopts=-N10"
 
