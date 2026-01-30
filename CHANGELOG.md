@@ -1,6 +1,6 @@
 # Revision history for file-io
 
-## 0.1.6 -- 2025-??-??
+## 0.1.6 -- 2025-01-30
 
 * Fix long path support on windows wrt [#39](https://github.com/haskell/file-io/issues/39)
 * Respect current locale when returning a handle wrt [#45](https://github.com/haskell/file-io/issues/45)
