@@ -1,5 +1,9 @@
 # Revision history for file-io
 
+## 0.1.6 -- 2025-??-??
+
+* Fix long path support on windows wrt [#39](https://github.com/haskell/file-io/issues/39)
+
 ## 0.1.5 -- 2024-11-26
 
 * Don't use QuasiQotes
