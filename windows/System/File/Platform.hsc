@@ -9,7 +9,7 @@ import Control.Exception (bracketOnError, try, SomeException, onException)
 import Data.Bits
 import Data.Coerce
 import Data.Maybe (fromJust)
-import System.IO (IOMode(..), Handle)
+import System.IO (IOMode(..), Handle, hSetEncoding)
 import System.OsPath.Windows ( WindowsPath )
 import qualified System.OsPath.Windows as OSP
 import qualified System.OsPath.Windows as WS
@@ -19,6 +19,7 @@ import System.OsString.Windows ( encodeUtf, WindowsString, WindowsChar )
 import qualified System.Win32 as Win32
 import qualified System.Win32.WindowsString.File as WS
 import System.Win32.WindowsString.Types (withTString, peekTString)
+import GHC.IO.Encoding (getLocaleEncoding)
 #if MIN_VERSION_Win32(2, 14, 0)
 import System.Win32.WindowsString.Types (withFilePath)
 #endif
@@ -255,7 +256,9 @@ toHandle fp iomode h = (`onException` Win32.closeHandle h) $ do
     when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
     fd <- _open_osfhandle (fromIntegral (ptrToIntPtr h)) (#const _O_BINARY)
     fp' <- either (const (fmap WS.toChar . WS.unpack $ fp)) id <$> try @SomeException (WS.decodeFS fp)
-    fdToHandle' fd Nothing False fp' iomode True
+    h' <- fdToHandle' fd Nothing False fp' iomode True
+    getLocaleEncoding >>= hSetEncoding h'
+    pure h'
 #endif
 
 #if !MIN_VERSION_filepath(1, 5, 0)
