@@ -1,5 +1,9 @@
 # Revision history for file-io
 
+## 0.2.0 -- 2025-??-??
+
+* Add ability to use `cloexec` in `openTempFile'` wrt [#44](https://github.com/haskell/file-io/issues/44)
+
 ## 0.1.6 -- 2025-??-??
 
 * Fix long path support on windows wrt [#39](https://github.com/haskell/file-io/issues/39)
