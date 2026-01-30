@@ -12,7 +12,6 @@ import qualified System.File.PlatformPath as PFP
 import System.IO
 import System.IO.Temp
 
-import Control.Exception (bracketOnError)
 import Data.Bits
 import System.OsPath.Windows ( WindowsPath, pstr )
 import qualified System.OsPath.Windows as WS
@@ -36,7 +35,7 @@ main = withSystemTempDirectory "tar-test" $ \baseDir' -> do
     ]
 
 openFile32 :: WindowsPath -> IOMode -> IO Win32.HANDLE
-openFile32 fp iomode =
+openFile32 fp _iomode =
     WS.createFile
       fp
       Win32.gENERIC_READ

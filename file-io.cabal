@@ -29,6 +29,11 @@ flag os-string
   default: False
   manual: False
 
+flag long-paths
+  description: Enable a hack for ad-hoc long path support on Windows
+  default: True
+  manual: True
+
 library
   default-language: Haskell2010
 
@@ -50,6 +55,9 @@ library
     build-depends: filepath >= 1.5.0.0, os-string >= 2.0.0
   else
     build-depends: filepath >= 1.4.100.0 && < 1.5.0.0
+
+  if flag(long-paths)
+    cpp-options:   -DLONG_PATHS
 
   exposed-modules:
     System.File.OsPath
@@ -111,6 +119,8 @@ test-suite Properties
     main-is: Properties.hs
     type: exitcode-stdio-1.0
     default-language: Haskell2010
-    build-depends: base >=4.13.0.0 && <5, bytestring, tasty, tasty-hunit, file-io, filepath, temporary
+    build-depends: base >=4.13.0.0 && <5, bytestring, directory, tasty, tasty-hunit, file-io, filepath, temporary
     ghc-options: -Wall -threaded -rtsopts "-with-rtsopts=-N10"
+    if flag(long-paths)
+      cpp-options:   -DLONG_PATHS
 

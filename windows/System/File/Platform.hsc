@@ -1,19 +1,21 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE PackageImports   #-}
+{-# LANGUAGE MultiWayIf   #-}
 
 module System.File.Platform where
 
 import Control.Exception (bracketOnError, try, SomeException, onException)
 import Data.Bits
+import Data.Coerce
 import Data.Maybe (fromJust)
 import System.IO (IOMode(..), Handle)
 import System.OsPath.Windows ( WindowsPath )
+import qualified System.OsPath.Windows as OSP
 import qualified System.OsPath.Windows as WS
 import Foreign.C.Types
 
-import qualified System.OsString.Windows as WS hiding (decodeFS)
-import System.OsString.Windows ( encodeUtf, WindowsString )
+import System.OsString.Windows ( encodeUtf, WindowsString, WindowsChar )
 import qualified System.Win32 as Win32
 import qualified System.Win32.WindowsString.File as WS
 import System.Win32.WindowsString.Types (withTString, peekTString)
@@ -43,8 +45,8 @@ import Text.Printf (printf)
 
 #if MIN_VERSION_filepath(1, 5, 0)
 import System.OsString.Encoding
+import qualified "os-string" System.OsString.Data.ByteString.Short.Word16 as BC
 import "os-string" System.OsString.Internal.Types (WindowsString(..), WindowsChar(..))
-import qualified "os-string" System.OsString.Data.ByteString.Short as BC
 #else
 import Data.Coerce (coerce)
 import System.OsPath.Encoding
@@ -52,9 +54,22 @@ import "filepath" System.OsString.Internal.Types (WindowsString(..), WindowsChar
 import qualified "filepath" System.OsPath.Data.ByteString.Short.Word16 as BC
 #endif
 
+import System.IO.Error (modifyIOError, ioeSetFileName)
+import GHC.IO.Encoding.UTF16 (mkUTF16le)
+import GHC.IO.Encoding.Failure (CodingFailureMode(TransliterateCodingFailure))
+import Control.Exception (displayException, Exception)
+
+#if defined(LONG_PATHS)
+import System.IO.Error (ioeSetLocation, ioeGetLocation, catchIOError)
+import Data.Char (isAlpha, isAscii, toUpper)
+import qualified System.Win32.WindowsString.Info as WS
+#endif
+
 -- | Open a file and return the 'Handle'.
 openFile :: WindowsPath -> IOMode -> IO Handle
-openFile fp iomode = bracketOnError
+openFile fp' iomode = (`ioeSetWsPath` fp') `modifyIOError` do
+  fp <- furnishPath fp'
+  bracketOnError
     (WS.createFile
       fp
       accessMode
@@ -71,7 +86,7 @@ openFile fp iomode = bracketOnError
 #endif
       Nothing)
     Win32.closeHandle
-    (toHandle fp iomode)
+    (toHandle fp' iomode)
  where
   accessMode = case iomode of
     ReadMode      -> Win32.gENERIC_READ
@@ -104,7 +119,9 @@ writeShareMode =
 
 -- | Open an existing file and return the 'Handle'.
 openExistingFile :: WindowsPath -> IOMode -> IO Handle
-openExistingFile fp iomode = bracketOnError
+openExistingFile fp' iomode = (`ioeSetWsPath` fp') `modifyIOError` do
+  fp <- furnishPath fp'
+  bracketOnError
     (WS.createFile
       fp
       accessMode
@@ -220,12 +237,12 @@ rand_string = do
   return $ WS.pack $ fmap (WS.unsafeFromChar) (printf "%x-%x-%x" r1 r2 r3)
 
 lenientDecode :: WindowsString -> String
-lenientDecode ws = let utf16le' = WS.decodeWith utf16le_b ws
-                       ucs2' = WS.decodeWith ucs2le ws
-                   in case (utf16le', ucs2') of
-                        (Right s, ~_) -> s
-                        (_, Right s) -> s
-                        (Left _, Left _) -> error "lenientDecode: failed to decode"
+lenientDecode wstr = let utf16le' = WS.decodeWith utf16le_b wstr
+                         ucs2' = WS.decodeWith ucs2le wstr
+                     in case (utf16le', ucs2') of
+                          (Right s, ~_) -> s
+                          (_, Right s) -> s
+                          (Left _, Left _) -> error "lenientDecode: failed to decode"
 
 
 toHandle :: WindowsPath -> IOMode -> Win32.HANDLE -> IO Handle
@@ -248,3 +265,162 @@ any_ = coerce BC.any
 
 #endif
 
+ioeSetWsPath :: IOError -> WindowsPath -> IOError
+ioeSetWsPath err =
+  ioeSetFileName err .
+  rightOrError .
+  WS.decodeWith (mkUTF16le TransliterateCodingFailure)
+
+rightOrError :: Exception e => Either e a -> a
+rightOrError (Left e)  = error (displayException e)
+rightOrError (Right a) = a
+
+-- inlined stuff from directory package
+furnishPath :: WindowsPath -> IO WindowsPath
+#if !defined(LONG_PATHS)
+furnishPath path = pure path
+#else
+furnishPath path =
+  (toExtendedLengthPath <$> rawPrependCurrentDirectory path)
+    `catchIOError` \ _ ->
+      pure path
+
+toExtendedLengthPath :: WindowsPath -> WindowsPath
+toExtendedLengthPath path =
+  if WS.isRelative path
+  then simplifiedPath
+  else
+    if | ws "\\??\\"  `isPrefixOf'` simplifiedPath -> simplifiedPath
+       | ws "\\\\?\\" `isPrefixOf'` simplifiedPath -> simplifiedPath
+       | ws "\\\\.\\" `isPrefixOf'` simplifiedPath -> simplifiedPath
+       | ws "\\\\"    `isPrefixOf'` simplifiedPath -> ws "\\\\?\\UNC" <> drop' 1 simplifiedPath
+       | otherwise                                    -> ws "\\\\?\\" <> simplifiedPath
+  where simplifiedPath = simplifyWindows path
+
+rawPrependCurrentDirectory :: WindowsPath -> IO WindowsPath
+rawPrependCurrentDirectory path
+  | WS.isRelative path =
+    ((`ioeAddLocation` "prependCurrentDirectory") .
+     (`ioeSetWsPath` path)) `modifyIOError` do
+      getFullPathName path
+  | otherwise = pure path
+
+simplifyWindows :: WindowsPath -> WindowsPath
+simplifyWindows path
+  | path == mempty         = mempty
+  | drive' == ws "\\\\?\\" = drive' <> subpath
+  | otherwise              = simplifiedPath
+  where
+    simplifiedPath = WS.joinDrive drive' subpath'
+    (drive, subpath) = WS.splitDrive path
+    drive' = upperDrive (normaliseTrailingSep (normalisePathSeps drive))
+    subpath' = appendSep . avoidEmpty . prependSep . WS.joinPath .
+               stripPardirs . expandDots . skipSeps .
+               WS.splitDirectories $ subpath
+
+    upperDrive d = case WS.unpack d of
+      c : k : s
+        | isAlpha (WS.toChar c), WS.toChar k == ':', all WS.isPathSeparator s ->
+          -- unsafeFromChar is safe here since all characters are ASCII.
+          WS.pack (WS.unsafeFromChar (toUpper (WS.toChar c)) : WS.unsafeFromChar ':' : s)
+      _ -> d
+    skipSeps =
+      (WS.pack <$>) .
+      filter (not . (`elem` (pure <$> WS.pathSeparators))) .
+      (WS.unpack <$>)
+    stripPardirs | pathIsAbsolute || subpathIsAbsolute = dropWhile (== ws "..")
+                 | otherwise = id
+    prependSep | subpathIsAbsolute = (WS.pack [WS.pathSeparator] <>)
+               | otherwise = id
+    avoidEmpty | not pathIsAbsolute
+               , drive == mempty || hasTrailingPathSep -- prefer "C:" over "C:."
+                 = emptyToCurDir
+               | otherwise = id
+    appendSep p | hasTrailingPathSep, not (pathIsAbsolute && p == mempty)
+                  = WS.addTrailingPathSeparator p
+                | otherwise = p
+    pathIsAbsolute = not (WS.isRelative path)
+    subpathIsAbsolute = any WS.isPathSeparator (take 1 (WS.unpack subpath))
+    hasTrailingPathSep = WS.hasTrailingPathSeparator subpath
+
+expandDots :: [WindowsPath] -> [WindowsPath]
+expandDots = reverse . go []
+  where
+    go ys' xs' =
+      case xs' of
+        [] -> ys'
+        x : xs
+          | x == ws "." -> go ys' xs
+          | x == ws ".." ->
+              case ys' of
+                [] -> go (x : ys') xs
+                y : ys
+                  | y == ws ".." -> go (x : ys') xs
+                  | otherwise -> go ys xs
+          | otherwise -> go (x : ys') xs
+
+-- | Remove redundant trailing slashes and pick the right kind of slash.
+normaliseTrailingSep :: WindowsPath -> WindowsPath
+normaliseTrailingSep path = do
+  let path' = reverse (WS.unpack path)
+  let (sep, path'') = span WS.isPathSeparator path'
+  let addSep = if null sep then id else (WS.pathSeparator :)
+  WS.pack (reverse (addSep path''))
+
+normalisePathSeps :: WindowsPath -> WindowsPath
+normalisePathSeps p = WS.pack (normaliseChar <$> WS.unpack p)
+  where normaliseChar c = if WS.isPathSeparator c then WS.pathSeparator else c
+
+emptyToCurDir :: WindowsPath -> WindowsPath
+emptyToCurDir path
+  | path == mempty = ws "."
+  | otherwise      = path
+
+ws :: String -> WindowsString
+ws = rightOrError . WS.encodeUtf
+
+getFullPathName :: WindowsPath -> IO WindowsPath
+getFullPathName path =
+  fromExtendedLengthPath <$> WS.getFullPathName (toExtendedLengthPath path)
+
+ioeAddLocation :: IOError -> String -> IOError
+ioeAddLocation e loc = do
+  ioeSetLocation e newLoc
+  where
+    newLoc = loc <> if null oldLoc then "" else ":" <> oldLoc
+    oldLoc = ioeGetLocation e
+
+fromExtendedLengthPath :: WindowsPath -> WindowsPath
+fromExtendedLengthPath ePath
+  | ws "\\\\?\\" `isPrefixOf'` ePath
+  , let eSubpath = drop' 4 ePath
+  = if | ws "UNC\\" `isPrefixOf'` eSubpath
+       -> ws "\\\\" <> drop' 4 eSubpath
+       | Just (drive, rest)    <- uncons' eSubpath
+       , Just (col,   subpath) <- uncons' rest
+       , WS.toChar col == ':'
+       , isDriveChar drive
+       , isPathRegular subpath
+       -> eSubpath
+       | otherwise
+       -> ePath
+  | otherwise = ePath
+  where
+    isDriveChar drive = isAlpha (WS.toChar drive) && isAscii (WS.toChar drive)
+    isPathRegular path =
+      not (WS.unsafeFromChar '/' `elem'` path ||
+           any (\x -> x == ws ".." || x == ws ".") (WS.splitDirectories path))
+
+elem' :: WindowsChar -> WindowsString -> Bool
+elem' = coerce BC.elem
+
+isPrefixOf' :: WindowsString -> WindowsString -> Bool
+isPrefixOf' = coerce BC.isPrefixOf
+
+drop' :: Int -> WindowsString -> WindowsString
+drop' = coerce BC.drop
+
+uncons' :: WindowsString -> Maybe (WindowsChar, WindowsString)
+uncons' = coerce BC.uncons
+
+#endif

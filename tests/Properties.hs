@@ -18,12 +18,21 @@ import GHC.IO.Exception (IOErrorType(..), IOException(..))
 import System.IO
 import System.IO.Temp
 import qualified Data.ByteString as BS
+#if defined(LONG_PATHS)
+import Control.Monad (when)
+import System.Directory.OsPath (createDirectory)
+import System.IO.Error (catchIOError)
+#endif
 
 
 main :: IO ()
 main = defaultMain $ testGroup "All"
     [ testGroup "System.File.OsPath"
-       [ testCase "readFile . writeFile" writeFileReadFile
+       [
+#if defined(LONG_PATHS)
+         testCase "writeFile (very long path)" writeFileLongPath,
+#endif
+         testCase "readFile . writeFile" writeFileReadFile
        , testCase "readFile . writeFile  . writeFile" writeWriteFileReadFile
        , testCase "readFile . appendFile . writeFile" appendFileReadFile
        , testCase "iomode: ReadFile does not allow write" iomodeReadFile
@@ -55,6 +64,29 @@ main = defaultMain $ testGroup "All"
        , testCase "openBinaryTempFileWithDefaultPermissions (filepaths different)" (openTempFile3 OSP.openBinaryTempFileWithDefaultPermissions)
        ]
     ]
+
+#if defined(LONG_PATHS)
+writeFileLongPath :: Assertion
+writeFileLongPath = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let longName = mconcat (replicate 10 [osp|its_very_long|])
+    let longDir = baseDir </> longName </> longName
+
+    supportsLongPaths <- do
+        -- create 2 dirs because 1 path segment by itself can't exceed MAX_PATH
+        -- tests: [createDirectory]
+        createDirectory (baseDir </> longName)
+        createDirectory longDir
+        return True
+      `catchIOError` \ _ ->
+        return False
+
+    when supportsLongPaths $ do
+      OSP.writeFile (longDir </> [osp|foo|]) "test"
+      contents <- OSP.readFile (longDir </> [osp|foo|])
+      "test" @=? contents
+#endif
 
 writeFileReadFile :: Assertion
 writeFileReadFile = do
