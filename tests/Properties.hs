@@ -7,6 +7,7 @@
 
 module Main where
 
+import GHC.IO.Encoding
 import Control.Exception
 import qualified System.FilePath as FP
 import Test.Tasty
@@ -62,6 +63,7 @@ main = defaultMain $ testGroup "All"
        , testCase "openBinaryTempFileWithDefaultPermissions" (openTempFile2 OSP.openBinaryTempFileWithDefaultPermissions)
        , testCase "openBinaryTempFileWithDefaultPermissions (reopen file)" (openTempFile1 OSP.openBinaryTempFileWithDefaultPermissions)
        , testCase "openBinaryTempFileWithDefaultPermissions (filepaths different)" (openTempFile3 OSP.openBinaryTempFileWithDefaultPermissions)
+       , testCase "respect setLocaleEncoding when opening a Handle" respectSetLocaleEncoding
        ]
     ]
 
@@ -331,4 +333,14 @@ fileLockedType = PermissionDenied
 #else
 fileLockedType = ResourceBusy
 #endif
+
+respectSetLocaleEncoding :: Assertion
+respectSetLocaleEncoding = do
+  withSystemTempDirectory "test" $ \baseDir' -> do
+    baseDir <- OSP.encodeFS baseDir'
+    let fp = baseDir </> [osp|foo|]
+    OSP.writeFile fp "testx"
+    setLocaleEncoding utf8
+    enc <- OSP.withFile fp ReadMode hGetEncoding
+    (Just $ show utf8) @=? (show <$> enc)
 

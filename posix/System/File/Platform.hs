@@ -20,10 +20,11 @@ import System.OsPath.Posix ( PosixPath, PosixString, (</>) )
 import qualified System.OsPath.Posix as PS
 import Data.IORef (IORef, newIORef)
 import System.Posix (CMode)
-import System.IO (utf8, latin1)
+import System.IO (utf8, latin1, hSetEncoding)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.Internals (c_getpid)
 import GHC.IORef (atomicModifyIORef'_)
+import GHC.IO.Encoding (getLocaleEncoding)
 import Foreign.C (getErrno, eEXIST, errnoToIOError)
 
 #if !MIN_VERSION_filepath(1, 5, 0)
@@ -63,7 +64,9 @@ openExistingFile_ df fp iomode = fdToHandle_ iomode fp =<< case iomode of
 fdToHandle_ :: IOMode -> PosixPath -> Fd -> IO Handle
 fdToHandle_ iomode fp (Fd fd) = (`onException` closeFd (Fd fd)) $ do
     fp'  <- fromRight (fmap PS.toChar . PS.unpack $ fp) <$> try @SomeException (PS.decodeFS fp)
-    fdToHandle' fd Nothing False fp' iomode True
+    h' <- fdToHandle' fd Nothing False fp' iomode True
+    getLocaleEncoding >>= hSetEncoding h'
+    pure h'
 
 openFileWithCloseOnExec :: PosixPath -> IOMode -> IO Handle
 openFileWithCloseOnExec = openFile_ defaultFileFlags' { cloexec = True }
