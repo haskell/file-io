@@ -3,6 +3,7 @@
 ## 0.1.6 -- 2025-??-??
 
 * Fix long path support on windows wrt [#39](https://github.com/haskell/file-io/issues/39)
+* Respect current locale when returning a handle wrt [#45](https://github.com/haskell/file-io/issues/45)
 
 ## 0.1.5 -- 2024-11-26
 
