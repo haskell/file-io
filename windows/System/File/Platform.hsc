@@ -174,8 +174,9 @@ findTempName :: (WindowsString, WindowsString)
              -> String
              -> WindowsPath
              -> CMode
+             -> Bool
              -> IO (WindowsPath, Handle)
-findTempName (prefix, suffix) loc tmp_dir mode = go
+findTempName (prefix, suffix) loc tmp_dir mode _cloExec = go
  where
   go = do
     let label = if prefix == mempty then fromJust (encodeUtf "ghc") else prefix

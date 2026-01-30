@@ -84,8 +84,9 @@ findTempName :: (PosixString, PosixString)
              -> String
              -> PosixPath
              -> CMode
+             -> Bool
              -> IO (PosixPath, Handle)
-findTempName (prefix, suffix) loc tmp_dir mode = go
+findTempName (prefix, suffix) loc tmp_dir mode cloExec = go
  where
   go = do
     rs <- rand_string
@@ -103,7 +104,7 @@ findTempName (prefix, suffix) loc tmp_dir mode = go
     else fmap (filepath,) $ fdToHandle_ ReadWriteMode filepath fd
 
   openTempFile_ :: PosixPath -> CMode -> IO Fd
-  openTempFile_ fp cmode = openFd fp ReadWrite defaultFileFlags' { creat = Just cmode, nonBlock = True, noctty = True, exclusive = True }
+  openTempFile_ fp cmode = openFd fp ReadWrite defaultFileFlags' { creat = Just cmode, nonBlock = True, noctty = True, exclusive = True, cloexec = cloExec }
 
 tempCounter :: IORef Int
 tempCounter = unsafePerformIO $ newIORef 0

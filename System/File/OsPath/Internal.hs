@@ -160,14 +160,14 @@ openTempFile :: OsPath     -- ^ Directory in which to create the file
                            -- be truncated to 3 chars, e.g. \"foobar.ext\" will be
                            -- \"fooXXX.ext\".
              -> IO (OsPath, Handle)
-openTempFile tmp_dir template = openTempFile' "openTempFile" tmp_dir template False 0o600
+openTempFile tmp_dir template = openTempFile' "openTempFile" tmp_dir template False 0o600 False
 
 -- | Like 'openTempFile', but opens the file in binary mode. See 'openBinaryFile' for more comments.
 --
 -- @since 0.1.3
 openBinaryTempFile :: OsPath -> OsString -> IO (OsPath, Handle)
 openBinaryTempFile tmp_dir template
-    = openTempFile' "openBinaryTempFile" tmp_dir template True 0o600
+    = openTempFile' "openBinaryTempFile" tmp_dir template True 0o600 False
 
 -- | Like 'openTempFile', but uses the default file permissions
 --
@@ -175,7 +175,7 @@ openBinaryTempFile tmp_dir template
 openTempFileWithDefaultPermissions :: OsPath -> OsString
                                    -> IO (OsPath, Handle)
 openTempFileWithDefaultPermissions tmp_dir template
-    = openTempFile' "openTempFileWithDefaultPermissions" tmp_dir template False 0o666
+    = openTempFile' "openTempFileWithDefaultPermissions" tmp_dir template False 0o666 False
 
 -- | Like 'openBinaryTempFile', but uses the default file permissions
 --
@@ -183,7 +183,7 @@ openTempFileWithDefaultPermissions tmp_dir template
 openBinaryTempFileWithDefaultPermissions :: OsPath -> OsString
                                          -> IO (OsPath, Handle)
 openBinaryTempFileWithDefaultPermissions tmp_dir template
-    = openTempFile' "openBinaryTempFileWithDefaultPermissions" tmp_dir template True 0o666
+    = openTempFile' "openBinaryTempFileWithDefaultPermissions" tmp_dir template True 0o666 False
 
 -- ---------------------------------------------------------------------------
 -- Internals
@@ -232,13 +232,13 @@ augmentError :: String -> OsPath -> IO a -> IO a
 augmentError str osfp = flip catchException (ioError . addFilePathToIOError str osfp)
 
 
-openTempFile' :: String -> OsPath -> OsString -> Bool -> CMode
+openTempFile' :: String -> OsPath -> OsString -> Bool -> CMode -> Bool
               -> IO (OsPath, Handle)
-openTempFile' loc (OsString tmp_dir) template@(OsString tmpl) binary mode
+openTempFile' loc (OsString tmp_dir) template@(OsString tmpl) binary mode cloExec
     | any_ (== OSP.pathSeparator) template
     = throwIO $ userError $ "openTempFile': Template string must not contain path separator characters: " ++ P.lenientDecode tmpl
     | otherwise = do
-        (fp, hdl) <- P.findTempName (prefix, suffix) loc tmp_dir mode
+        (fp, hdl) <- P.findTempName (prefix, suffix) loc tmp_dir mode cloExec
         when binary $ hSetBinaryMode hdl True
         pure (OsString fp, hdl)
   where
