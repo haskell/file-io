@@ -9,7 +9,7 @@ import Control.Exception (bracketOnError, try, SomeException, onException)
 import Data.Bits
 import Data.Coerce
 import Data.Maybe (fromJust)
-import System.IO (IOMode(..), Handle, hSetEncoding)
+import System.IO (IOMode(..), Handle, SeekMode(..), hSeek, hSetEncoding)
 import System.OsPath.Windows ( WindowsPath )
 import qualified System.OsPath.Windows as OSP
 import qualified System.OsPath.Windows as WS
@@ -24,12 +24,11 @@ import GHC.IO.Encoding (getLocaleEncoding)
 import System.Win32.WindowsString.Types (withFilePath)
 #endif
 import Control.Monad (when, void)
-#if defined(__IO_MANAGER_WINIO__)
+##if defined(__IO_MANAGER_WINIO__)
 import GHC.IO.SubSystem
-#else
+##endif
 import GHC.IO.Handle.FD (fdToHandle')
 #include <fcntl.h>
-#endif
 import GHC.IORef (atomicModifyIORef'_)
 import Foreign.C (getErrno, errnoToIOError)
 import Data.IORef (IORef, newIORef)
@@ -77,14 +76,14 @@ openFile fp' iomode = (`ioeSetWsPath` fp') `modifyIOError` do
       shareMode
       Nothing
       createMode
-#if defined(__IO_MANAGER_WINIO__)
+##if defined(__IO_MANAGER_WINIO__)
       (case ioSubSystem of
         IoPOSIX -> Win32.fILE_ATTRIBUTE_NORMAL
         IoNative -> Win32.fILE_ATTRIBUTE_NORMAL .|. Win32.fILE_FLAG_OVERLAPPED
       )
-#else
+##else
       Win32.fILE_ATTRIBUTE_NORMAL
-#endif
+##endif
       Nothing)
     Win32.closeHandle
     (toHandle fp' iomode)
@@ -129,14 +128,14 @@ openExistingFile fp' iomode = (`ioeSetWsPath` fp') `modifyIOError` do
       shareMode
       Nothing
       createMode
-#if defined(__IO_MANAGER_WINIO__)
+##if defined(__IO_MANAGER_WINIO__)
       (case ioSubSystem of
         IoPOSIX -> Win32.fILE_ATTRIBUTE_NORMAL
         IoNative -> Win32.fILE_ATTRIBUTE_NORMAL .|. Win32.fILE_FLAG_OVERLAPPED
       )
-#else
+##else
       Win32.fILE_ATTRIBUTE_NORMAL
-#endif
+##endif
       Nothing)
     Win32.closeHandle
     (toHandle fp iomode)
@@ -159,10 +158,8 @@ openExistingFile fp' iomode = (`ioeSetWsPath` fp') `modifyIOError` do
     AppendMode    -> writeShareMode
     ReadWriteMode -> maxShareMode
 
-#if !defined(__IO_MANAGER_WINIO__)
 foreign import ccall "_open_osfhandle"
   _open_osfhandle :: CIntPtr -> CInt -> IO CInt
-#endif
 
 openFileWithCloseOnExec :: WindowsPath -> IOMode -> IO Handle
 openFileWithCloseOnExec = openFile
@@ -248,19 +245,27 @@ lenientDecode wstr = let utf16le' = WS.decodeWith utf16le_b wstr
 
 
 toHandle :: WindowsPath -> IOMode -> Win32.HANDLE -> IO Handle
-#if defined(__IO_MANAGER_WINIO__)
-toHandle _ iomode h = (`onException` Win32.closeHandle h) $ do
-    when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
-    Win32.hANDLEToHandle h
-#else
-toHandle fp iomode h = (`onException` Win32.closeHandle h) $ do
+##if defined(__IO_MANAGER_WINIO__)
+toHandle fp iomode h = toHandlePosix fp iomode h <!> toHandleNative iomode h
+
+toHandleNative :: IOMode -> Win32.HANDLE -> IO Handle
+toHandleNative iomode h = (`onException` Win32.closeHandle h) $ do
+    h' <- Win32.hANDLEToHandle h
+    when (iomode == AppendMode) $ hSeek h' SeekFromEnd 0
+    getLocaleEncoding >>= hSetEncoding h'
+    pure h'
+##else
+toHandle = toHandlePosix
+##endif
+
+toHandlePosix :: WindowsPath -> IOMode -> Win32.HANDLE -> IO Handle
+toHandlePosix fp iomode h = (`onException` Win32.closeHandle h) $ do
     when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
     fd <- _open_osfhandle (fromIntegral (ptrToIntPtr h)) (#const _O_BINARY)
     fp' <- either (const (fmap WS.toChar . WS.unpack $ fp)) id <$> try @SomeException (WS.decodeFS fp)
     h' <- fdToHandle' fd Nothing False fp' iomode True
     getLocaleEncoding >>= hSetEncoding h'
     pure h'
-#endif
 
 #if !MIN_VERSION_filepath(1, 5, 0)
 
