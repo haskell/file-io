@@ -5,7 +5,7 @@
 
 module System.File.Platform where
 
-import Control.Exception (bracketOnError, try, SomeException, onException)
+import Control.Exception (bracketOnError, try, SomeException)
 import Data.Bits
 import Data.Coerce
 import Data.Maybe (fromJust)
@@ -249,11 +249,11 @@ lenientDecode wstr = let utf16le' = WS.decodeWith utf16le_b wstr
 
 toHandle :: WindowsPath -> IOMode -> Win32.HANDLE -> IO Handle
 #if defined(__IO_MANAGER_WINIO__)
-toHandle _ iomode h = (`onException` Win32.closeHandle h) $ do
+toHandle _ iomode h = do
     when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
     Win32.hANDLEToHandle h
 #else
-toHandle fp iomode h = (`onException` Win32.closeHandle h) $ do
+toHandle fp iomode h = do
     when (iomode == AppendMode ) $ void $ Win32.setFilePointerEx h 0 Win32.fILE_END
     fd <- _open_osfhandle (fromIntegral (ptrToIntPtr h)) (#const _O_BINARY)
     fp' <- either (const (fmap WS.toChar . WS.unpack $ fp)) id <$> try @SomeException (WS.decodeFS fp)
